@@ -295,9 +295,7 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
 // Hotkey
 @property (nonatomic, strong) NSPopUpButton *hotkeyPopup;
 @property (nonatomic, strong) NSPopUpButton *cancelHotkeyPopup;
-@property (nonatomic, strong) NSButton *startSoundCheckbox;
-@property (nonatomic, strong) NSButton *stopSoundCheckbox;
-@property (nonatomic, strong) NSButton *errorSoundCheckbox;
+@property (nonatomic, strong) NSButton *hideMenuIconCheckbox;
 
 // Dictionary
 @property (nonatomic, strong) NSTextView *dictionaryTextView;
@@ -594,7 +592,7 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     CGFloat fieldX = labelW + 24;
     CGFloat rowH = 32;
 
-    CGFloat contentHeight = 360;
+    CGFloat contentHeight = 300;
     NSView *pane = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, paneWidth, contentHeight)];
 
     CGFloat y = contentHeight - 48;
@@ -648,33 +646,14 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     [pane addSubview:hotkeyHint];
     y -= 30;
 
-    // Feedback sounds
-    [pane addSubview:[self formLabel:@"Feedback Sounds" frame:NSMakeRect(16, y, labelW, 22)]];
+    // Appearance
+    [pane addSubview:[self formLabel:@"Appearance" frame:NSMakeRect(16, y, labelW, 22)]];
 
-    self.startSoundCheckbox = [NSButton checkboxWithTitle:@"Play a sound when recording starts"
-                                                   target:nil
-                                                   action:nil];
-    self.startSoundCheckbox.frame = NSMakeRect(fieldX, y - 4, 300, 22);
-    [pane addSubview:self.startSoundCheckbox];
-    y -= 28;
-
-    self.stopSoundCheckbox = [NSButton checkboxWithTitle:@"Play a sound when recording stops"
-                                                  target:nil
-                                                  action:nil];
-    self.stopSoundCheckbox.frame = NSMakeRect(fieldX, y - 4, 300, 22);
-    [pane addSubview:self.stopSoundCheckbox];
-    y -= 28;
-
-    self.errorSoundCheckbox = [NSButton checkboxWithTitle:@"Play a sound when an error occurs"
-                                                   target:nil
-                                                   action:nil];
-    self.errorSoundCheckbox.frame = NSMakeRect(fieldX, y - 4, 300, 22);
-    [pane addSubview:self.errorSoundCheckbox];
-    y -= 32;
-
-    NSTextField *feedbackHint = [self descriptionLabel:@"These toggle the built-in cue sounds for start, stop, and error events."];
-    feedbackHint.frame = NSMakeRect(fieldX, y - 2, paneWidth - fieldX - 32, 24);
-    [pane addSubview:feedbackHint];
+    self.hideMenuIconCheckbox = [NSButton checkboxWithTitle:@"Hide menu bar icon (show Dock icon instead)"
+                                                    target:nil
+                                                    action:nil];
+    self.hideMenuIconCheckbox.frame = NSMakeRect(fieldX, y - 4, 350, 22);
+    [pane addSubview:self.hideMenuIconCheckbox];
     y -= 34;
 
     // Save / Cancel buttons
@@ -925,12 +904,8 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
             }
         }
 
-        NSString *startSound = yamlRead(yaml, @"feedback.start_sound");
-        NSString *stopSound = yamlRead(yaml, @"feedback.stop_sound");
-        NSString *errorSound = yamlRead(yaml, @"feedback.error_sound");
-        self.startSoundCheckbox.state = [startSound isEqualToString:@"true"] ? NSControlStateValueOn : NSControlStateValueOff;
-        self.stopSoundCheckbox.state = [stopSound isEqualToString:@"true"] ? NSControlStateValueOn : NSControlStateValueOff;
-        self.errorSoundCheckbox.state = [errorSound isEqualToString:@"true"] ? NSControlStateValueOn : NSControlStateValueOff;
+        NSString *hideMenuIcon = yamlRead(yaml, @"appearance.hide_menu_icon");
+        self.hideMenuIconCheckbox.state = [hideMenuIcon isEqualToString:@"true"] ? NSControlStateValueOn : NSControlStateValueOff;
     } else if ([identifier isEqualToString:kToolbarDictionary]) {
         NSString *dictPath = [dir stringByAppendingPathComponent:kDictionaryFile];
         NSString *dictContent = [NSString stringWithContentsOfFile:dictPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
@@ -988,13 +963,9 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
         yaml = yamlWrite(yaml, @"hotkey.trigger_key", selectedTriggerHotkey);
         yaml = yamlWrite(yaml, @"hotkey.cancel_key", selectedCancelHotkey);
     }
-    if (self.startSoundCheckbox) {
-        NSString *startSound = (self.startSoundCheckbox.state == NSControlStateValueOn) ? @"true" : @"false";
-        NSString *stopSound = (self.stopSoundCheckbox.state == NSControlStateValueOn) ? @"true" : @"false";
-        NSString *errorSound = (self.errorSoundCheckbox.state == NSControlStateValueOn) ? @"true" : @"false";
-        yaml = yamlWrite(yaml, @"feedback.start_sound", startSound);
-        yaml = yamlWrite(yaml, @"feedback.stop_sound", stopSound);
-        yaml = yamlWrite(yaml, @"feedback.error_sound", errorSound);
+    if (self.hideMenuIconCheckbox) {
+        NSString *hideMenuIcon = (self.hideMenuIconCheckbox.state == NSControlStateValueOn) ? @"true" : @"false";
+        yaml = yamlWrite(yaml, @"appearance.hide_menu_icon", hideMenuIcon);
     }
 
     // Write config.yaml

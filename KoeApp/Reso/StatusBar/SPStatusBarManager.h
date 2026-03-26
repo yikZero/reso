@@ -25,4 +25,10 @@
 ///        "finalizing_asr", "correcting", "preparing_paste", "pasting", "error", "completed"
 - (void)updateState:(NSString *)state;
 
+/// Show the status bar item.
+- (void)showStatusItem;
+
+/// Hide the status bar item.
+- (void)hideStatusItem;
+
 @end

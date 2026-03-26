@@ -12,6 +12,8 @@ pub struct Config {
     #[serde(default)]
     pub feedback: FeedbackSection,
     #[serde(default)]
+    pub appearance: AppearanceSection,
+    #[serde(default)]
     pub dictionary: DictionarySection,
     #[serde(default)]
     pub hotkey: HotkeySection,
@@ -99,6 +101,12 @@ pub struct FeedbackSection {
     pub stop_sound: bool,
     #[serde(default = "default_true")]
     pub error_sound: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AppearanceSection {
+    #[serde(default)]
+    pub hide_menu_icon: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -301,6 +309,11 @@ impl Default for LlmSection {
     }
 }
 impl Default for FeedbackSection {
+    fn default() -> Self {
+        serde_yaml::from_str("{}").unwrap()
+    }
+}
+impl Default for AppearanceSection {
     fn default() -> Self {
         serde_yaml::from_str("{}").unwrap()
     }

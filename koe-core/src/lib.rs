@@ -326,6 +326,17 @@ pub extern "C" fn sp_core_get_feedback_config() -> SPFeedbackConfig {
     }
 }
 
+/// Query whether the menu bar icon should be hidden.
+#[no_mangle]
+pub extern "C" fn sp_core_get_hide_menu_icon() -> bool {
+    let global = CORE.lock().unwrap();
+    if let Some(ref core) = *global {
+        core.config.appearance.hide_menu_icon
+    } else {
+        false
+    }
+}
+
 /// Query current hotkey configuration.
 /// Returns key codes and modifier flags for the configured trigger/cancel keys.
 #[no_mangle]

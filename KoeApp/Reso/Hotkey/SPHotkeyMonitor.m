@@ -17,6 +17,7 @@ typedef NS_ENUM(NSInteger, SPHotkeyState) {
 @property (nonatomic, assign) SPHotkeyState state;
 @property (nonatomic, strong) NSTimer *holdTimer;
 @property (nonatomic, assign) BOOL triggerDown;
+@property (nonatomic, assign) CFAbsoluteTime lastSessionEndTime;
 @property (nonatomic, assign) CFMachPortRef eventTap;
 @property (nonatomic, assign) CFRunLoopSourceRef runLoopSource;
 @property (nonatomic, strong) id globalMonitorRef;
@@ -285,10 +286,17 @@ static CGEventRef hotkeyEventCallback(CGEventTapProxy proxy,
 - (void)handleTriggerDown {
     NSLog(@"[Koe] Trigger DOWN (state=%ld)", (long)self.state);
     switch (self.state) {
-        case SPHotkeyStateIdle:
+        case SPHotkeyStateIdle: {
+            // Debounce: ignore trigger if a session ended less than 500ms ago
+            if (self.lastSessionEndTime > 0 &&
+                (CFAbsoluteTimeGetCurrent() - self.lastSessionEndTime) < 0.5) {
+                NSLog(@"[Koe] Trigger ignored (debounce)");
+                return;
+            }
             self.state = SPHotkeyStatePending;
             [self startHoldTimer];
             break;
+        }
 
         case SPHotkeyStateRecordingToggle:
             self.state = SPHotkeyStateConsumeKeyUp;
@@ -311,11 +319,13 @@ static CGEventRef hotkeyEventCallback(CGEventTapProxy proxy,
 
         case SPHotkeyStateRecordingHold:
             self.state = SPHotkeyStateIdle;
+            self.lastSessionEndTime = CFAbsoluteTimeGetCurrent();
             [self.delegate hotkeyMonitorDidDetectHoldEnd];
             break;
 
         case SPHotkeyStateConsumeKeyUp:
             self.state = SPHotkeyStateIdle;
+            self.lastSessionEndTime = CFAbsoluteTimeGetCurrent();
             break;
 
         default:
@@ -349,6 +359,7 @@ static CGEventRef hotkeyEventCallback(CGEventTapProxy proxy,
     [self cancelHoldTimer];
     self.triggerDown = NO;
     self.state = SPHotkeyStateIdle;
+    self.lastSessionEndTime = CFAbsoluteTimeGetCurrent();
 }
 
 @end

@@ -25,6 +25,9 @@ targets:
         INFOPLIST_FILE: Reso/Info.plist
         CODE_SIGN_ENTITLEMENTS: Reso/Reso.entitlements
         PRODUCT_NAME: Reso
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: 648N996R87
+        CODE_SIGN_STYLE: Automatic
         HEADER_SEARCH_PATHS:
           - "$(inherited)"
           - "$(SRCROOT)/../koe-core/target"

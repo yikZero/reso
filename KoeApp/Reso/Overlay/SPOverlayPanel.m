@@ -4,7 +4,7 @@
 // ── Geometry ──────────────────────────────────────────────
 static const CGFloat kPillHeight       = 36.0;
 static const CGFloat kPillCornerRadius = 18.0;
-static const CGFloat kBottomMargin     = 10.0;
+static const CGFloat kBottomMargin     = 50.0;
 static const CGFloat kHorizontalPad    = 14.0;
 static const CGFloat kIconAreaWidth    = 28.0;
 static const CGFloat kIconTextGap      = 6.0;
@@ -27,9 +27,9 @@ static const CGFloat   kDotSpacing    = 8.0;
 static const CGFloat kScreenHorizontalMargin = 32.0;
 
 // Animation
-static const NSTimeInterval kAnimInterval      = 1.0 / 30.0;
+static const NSTimeInterval kAnimInterval      = 1.0 / 60.0;
 static const NSTimeInterval kFadeInDuration    = 0.2;
-static const NSTimeInterval kFadeOutDuration   = 0.3;
+static const NSTimeInterval kFadeOutDuration   = 0.5;
 static const NSTimeInterval kResizeDuration    = 0.15;
 
 // ── Animation mode ───────────────────────────────────────
@@ -45,7 +45,6 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
 
 @interface SPOverlayContentView : NSView
 @property (nonatomic, copy)   NSString      *statusText;
-@property (nonatomic, copy)   NSString      *interimText;
 @property (nonatomic, strong) NSColor       *accentColor;
 @property (nonatomic, assign) SPOverlayMode  mode;
 @property (nonatomic, assign) NSInteger      tick;  // animation counter
@@ -96,7 +95,7 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     }
 
     // ── Text ──
-    NSString *displayText = (self.interimText.length > 0) ? self.interimText : self.statusText;
+    NSString *displayText = self.statusText;
     if (displayText.length > 0) {
         NSDictionary *attrs = @{
             NSFontAttributeName: [NSFont systemFontOfSize:13.0 weight:NSFontWeightMedium],
@@ -123,7 +122,7 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     CGFloat startX = centerX - totalW / 2.0;
 
     for (NSInteger i = 0; i < kBarCount; i++) {
-        double phase = (double)(self.tick) * 0.12 + (double)i * 1.1;
+        double phase = (double)(self.tick) * 0.06 + (double)i * 1.1;
         CGFloat t = (CGFloat)(0.5 + 0.5 * sin(phase));
         CGFloat h = kBarMinH + t * (kBarMaxH - kBarMinH);
         CGFloat alpha = 0.55 + 0.45 * t;
@@ -147,10 +146,10 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     CGFloat startX = centerX - totalW / 2.0;
 
     for (NSInteger i = 0; i < kDotCount; i++) {
-        double phase = (double)(self.tick) * 0.15 - (double)i * 0.9;
-        CGFloat bounce = (CGFloat)fmax(0.0, sin(phase));
+        double phase = (double)(self.tick) * 0.075 - (double)i * 1.2;
+        CGFloat bounce = (CGFloat)((1.0 + sin(phase)) * 0.5);
         CGFloat r = kDotBaseRadius + bounce * 1.5;
-        CGFloat alpha = 0.35 + 0.65 * bounce;
+        CGFloat alpha = 0.4 + 0.6 * bounce;
         CGFloat offsetY = bounce * 3.0;
 
         [[color colorWithAlphaComponent:alpha] setFill];
@@ -165,7 +164,7 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
 - (void)drawCheckmarkAtX:(CGFloat)centerX centerY:(CGFloat)centerY {
     NSColor *color = self.accentColor ?: [NSColor whiteColor];
 
-    CGFloat progress = fmin(1.0, (CGFloat)self.tick / 12.0);
+    CGFloat progress = fmin(1.0, (CGFloat)self.tick / 24.0);
 
     NSPoint p0 = NSMakePoint(centerX - 6, centerY + 1);
     NSPoint p1 = NSMakePoint(centerX - 1.5, centerY - 4);
@@ -270,9 +269,6 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     self.currentState = state;
     [self stopAnimation];
 
-    // Clear interim text on any state change
-    self.contentView.interimText = nil;
-
     if ([state isEqualToString:@"idle"] || [state isEqualToString:@"completed"]) {
         self.sessionMaxWidth = 0;
         self.sessionMaxHeight = 0;
@@ -290,25 +286,17 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
         text   = @"Listening…";
         accent = [NSColor colorWithRed:1.0 green:0.32 blue:0.32 alpha:1.0];
         mode   = SPOverlayModeWaveform;
-    } else if ([state hasPrefix:@"connecting_asr"]) {
-        text   = @"Connecting…";
-        accent = [NSColor colorWithRed:1.0 green:0.78 blue:0.28 alpha:1.0];
-        mode   = SPOverlayModeProcessing;
-    } else if ([state hasPrefix:@"finalizing_asr"]) {
-        text   = @"Recognizing…";
+    } else if ([state hasPrefix:@"connecting_asr"] || [state hasPrefix:@"finalizing_asr"] || [state isEqualToString:@"correcting"]) {
+        text   = @"Processing…";
         accent = [NSColor colorWithRed:0.35 green:0.78 blue:1.0 alpha:1.0];
         mode   = SPOverlayModeProcessing;
-    } else if ([state isEqualToString:@"correcting"]) {
-        text   = @"Thinking…";
-        accent = [NSColor colorWithRed:0.55 green:0.6 blue:1.0 alpha:1.0];
-        mode   = SPOverlayModeProcessing;
     } else if ([state hasPrefix:@"preparing_paste"] || [state isEqualToString:@"pasting"]) {
-        text   = @"Pasting…";
+        text   = @"Copied to clipboard";
         accent = [NSColor colorWithRed:0.3 green:0.85 blue:0.45 alpha:1.0];
         mode   = SPOverlayModeSuccess;
     } else if ([state isEqualToString:@"error"] || [state isEqualToString:@"failed"]) {
-        text   = @"Error";
-        accent = [NSColor colorWithRed:1.0 green:0.32 blue:0.32 alpha:1.0];
+        text   = @"Something went wrong";
+        accent = [NSColor colorWithRed:1.0 green:0.6 blue:0.28 alpha:1.0];
         mode   = SPOverlayModeError;
     } else {
         text   = @"Working…";
@@ -319,18 +307,18 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     self.contentView.statusText  = text;
     self.contentView.accentColor = accent;
     self.contentView.mode        = mode;
-    self.contentView.tick        = 0;
-    [self resizeAndCenterAnimated:NO];
+
+    // Only reset tick for checkmark — sine-wave animations are periodic and
+    // should continue seamlessly across state transitions.
+    if (mode == SPOverlayModeSuccess) {
+        self.contentView.tick = 0;
+    }
+
+    BOOL isFirstShow = ![self.panel isVisible] || self.panel.alphaValue < 0.1;
+    [self resizeAndCenterAnimated:!isFirstShow];
+    [self startAnimation];
     [self.contentView setNeedsDisplay:YES];
     [self show];
-    [self startAnimation];
-}
-
-- (void)updateInterimText:(NSString *)text {
-    if (![self.currentState hasPrefix:@"recording"]) return;
-    self.contentView.interimText = text;
-    [self resizeAndCenterAnimated:YES];
-    [self.contentView setNeedsDisplay:YES];
 }
 
 #pragma mark - Layout
@@ -339,9 +327,7 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
     NSDictionary *attrs = @{
         NSFontAttributeName: [NSFont systemFontOfSize:13.0 weight:NSFontWeightMedium],
     };
-    NSString *displayText = (self.contentView.interimText.length > 0)
-                            ? self.contentView.interimText
-                            : self.contentView.statusText;
+    NSString *displayText = self.contentView.statusText;
     NSAttributedString *str = [[NSAttributedString alloc] initWithString:displayText ?: @"" attributes:attrs];
     
     CGFloat iconSpace = kHorizontalPad + kIconAreaWidth + kIconTextGap;
@@ -424,7 +410,6 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
 #pragma mark - Animation Timer
 
 - (void)startAnimation {
-    self.contentView.tick = 0;
     self.animationTimer = [NSTimer scheduledTimerWithTimeInterval:kAnimInterval
                                                          repeats:YES
                                                            block:^(NSTimer *timer) {

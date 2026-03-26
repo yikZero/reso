@@ -6,10 +6,10 @@
 
 - (instancetype)init;
 
+/// Current overlay state.
+@property (nonatomic, readonly, copy) NSString *currentState;
+
 /// Update displayed state. Same state strings as SPStatusBarManager.
 - (void)updateState:(NSString *)state;
-
-/// Update interim ASR text shown during recording.
-- (void)updateInterimText:(NSString *)text;
 
 @end

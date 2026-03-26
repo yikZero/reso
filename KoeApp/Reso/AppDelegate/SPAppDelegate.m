@@ -74,6 +74,9 @@
                                                        permissionManager:self.permissionManager
                                                       audioDeviceManager:self.audioDeviceManager];
 
+    // Apply menu icon visibility
+    [self applyMenuIconVisibility];
+
     // Initialize floating overlay
     self.overlayPanel = [[SPOverlayPanel alloc] init];
 
@@ -174,6 +177,23 @@
     NSLog(@"[Koe] Config file watcher started (polling every 3s)");
 }
 
+- (void)applyMenuIconVisibility {
+    BOOL hideIcon = sp_core_get_hide_menu_icon();
+    static BOOL lastHideIcon = NO;
+    static BOOL initialized = NO;
+    if (initialized && hideIcon == lastHideIcon) return;
+    initialized = YES;
+    lastHideIcon = hideIcon;
+
+    if (hideIcon) {
+        [self.statusBarManager hideStatusItem];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    } else {
+        [self.statusBarManager showStatusItem];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+    }
+}
+
 - (void)checkConfigFileChanged {
     NSString *configPath = [NSHomeDirectory() stringByAppendingPathComponent:@".koe/config.yaml"];
 
@@ -199,6 +219,9 @@
           newConfig.cancel_alt_key_code,
           (unsigned long long)newConfig.cancel_modifier_flag);
     [self applyHotkeyConfig:newConfig restartMonitorIfNeeded:YES];
+
+    // Apply menu icon visibility
+    [self applyMenuIconVisibility];
 }
 
 #pragma mark - SPHotkeyMonitorDelegate
@@ -286,99 +309,87 @@
     }
     [[SPHistoryManager sharedManager] recordSessionWithDurationMs:durationMs text:text];
 
-    [self.statusBarManager updateState:@"pasting"];
-    [self.overlayPanel updateState:@"pasting"];
-
-    // Backup clipboard, write text, paste, restore
-    [self.clipboardManager backup];
-    [self.clipboardManager writeText:text];
-
-    // Check if accessibility is available for auto-paste
     if ([self.permissionManager isAccessibilityGranted]) {
-        [self.pasteManager simulatePasteWithCompletion:^{
-            [self.clipboardManager scheduleRestoreAfterDelay:1500];
-            [self.statusBarManager updateState:@"idle"];
-            [self.overlayPanel updateState:@"idle"];
-        }];
-    } else {
-        NSLog(@"[Koe] Accessibility not granted — text copied to clipboard only");
+        [self.clipboardManager backup];
+        [self.clipboardManager writeText:text];
         [self.statusBarManager updateState:@"idle"];
         [self.overlayPanel updateState:@"idle"];
+        [self.pasteManager simulatePasteWithCompletion:^{
+            [self.clipboardManager scheduleRestoreAfterDelay:1500];
+        }];
+    } else {
+        NSLog(@"[Koe] Accessibility not granted — showing text for manual copy");
+        [self.statusBarManager updateState:@"idle"];
+        [self.overlayPanel updateState:@"idle"];
+        [self showCopyableText:text];
     }
 }
 
 - (void)rustBridgeDidEncounterError:(NSString *)message {
     NSLog(@"[Koe] Session error: %@", message);
-    [self.cuePlayer playError];
+    BOOL isAuthError = [message containsString:@"401"];
+    BOOL isNoSpeech = [message containsString:@"no speech recognized"];
+    if (!isAuthError && !isNoSpeech) {
+        [self.cuePlayer playError];
+    }
     [self.audioCaptureManager stopCapture];
     [self.hotkeyMonitor resetToIdle];
     [self.statusBarManager updateState:@"error"];
     [self.overlayPanel updateState:@"error"];
 
-    // Send system notification with error details
-    [self sendErrorNotification:message];
-
-    // Brief error display, then back to idle
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
+    // Brief error display, then back to idle (only if still in error state)
+    NSTimeInterval displayTime = isNoSpeech ? 1.0 : 2.0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(displayTime * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        [self.statusBarManager updateState:@"idle"];
-        [self.overlayPanel updateState:@"idle"];
+        if ([self.overlayPanel.currentState isEqualToString:@"error"]) {
+            [self.statusBarManager updateState:@"idle"];
+            [self.overlayPanel updateState:@"idle"];
+        }
     });
-}
-
-- (void)sendWarningNotification:(NSString *)message {
-    UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-    content.title = @"Reso Warning";
-    content.body = message;
-    content.sound = nil;
-
-    NSString *identifier = [NSString stringWithFormat:@"koe-warning-%f",
-                            [[NSDate date] timeIntervalSince1970]];
-    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:identifier
-                                                                          content:content
-                                                                          trigger:nil];
-    [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request
-                                                           withCompletionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"[Koe] Failed to deliver warning notification: %@", error.localizedDescription);
-        }
-    }];
-}
-
-- (void)sendErrorNotification:(NSString *)message {
-    UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-    content.title = @"Reso Error";
-    content.body = message;
-    content.sound = nil; // Already playing error cue
-
-    NSString *identifier = [NSString stringWithFormat:@"koe-error-%f",
-                            [[NSDate date] timeIntervalSince1970]];
-    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:identifier
-                                                                          content:content
-                                                                          trigger:nil];
-    [[UNUserNotificationCenter currentNotificationCenter] addNotificationRequest:request
-                                                           withCompletionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"[Koe] Failed to deliver error notification: %@", error.localizedDescription);
-        }
-    }];
 }
 
 - (void)rustBridgeDidReceiveWarning:(NSString *)message {
     NSLog(@"[Koe] Session warning: %@", message);
-    [self sendWarningNotification:message];
 }
 
 - (void)rustBridgeDidReceiveInterimText:(NSString *)text {
-    [self.overlayPanel updateInterimText:text];
 }
 
 - (void)rustBridgeDidChangeState:(NSString *)state {
+    if ([state hasPrefix:@"preparing_paste"] || [state isEqualToString:@"pasting"] || [state isEqualToString:@"completed"]) {
+        return;
+    }
     [self.statusBarManager updateState:state];
     [self.overlayPanel updateState:state];
 }
 
 #pragma mark - Audio Error Recovery
+
+- (void)showCopyableText:(NSString *)text {
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Voice Input Result";
+    alert.informativeText = @"Accessibility permission not granted. You can copy the text below:";
+
+    NSTextField *textField = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 360, 80)];
+    textField.stringValue = text;
+    textField.editable = NO;
+    textField.selectable = YES;
+    textField.bezeled = YES;
+    textField.bezelStyle = NSTextFieldRoundedBezel;
+    textField.font = [NSFont systemFontOfSize:13];
+    textField.lineBreakMode = NSLineBreakByWordWrapping;
+    textField.usesSingleLineMode = NO;
+    alert.accessoryView = textField;
+
+    [alert addButtonWithTitle:@"Copy"];
+    [alert addButtonWithTitle:@"Close"];
+
+    NSModalResponse response = [alert runModal];
+    if (response == NSAlertFirstButtonReturn) {
+        [[NSPasteboard generalPasteboard] clearContents];
+        [[NSPasteboard generalPasteboard] setString:text forType:NSPasteboardTypeString];
+    }
+}
 
 - (void)handleAudioCaptureError:(NSString *)reason {
     NSLog(@"[Koe] Audio capture error: %@", reason);
@@ -387,12 +398,13 @@
     [self.hotkeyMonitor resetToIdle];
     [self.statusBarManager updateState:@"error"];
     [self.overlayPanel updateState:@"error"];
-    [self sendErrorNotification:reason];
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        [self.statusBarManager updateState:@"idle"];
-        [self.overlayPanel updateState:@"idle"];
+        if ([self.overlayPanel.currentState isEqualToString:@"error"]) {
+            [self.statusBarManager updateState:@"idle"];
+            [self.overlayPanel updateState:@"idle"];
+        }
     });
 }
 
@@ -407,6 +419,13 @@
         [self.audioCaptureManager stopCapture];
         [self handleAudioCaptureError:@"Audio device disconnected"];
     }
+}
+
+#pragma mark - Reopen (Spotlight / Finder re-launch)
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag {
+    [self statusBarDidSelectSetupWizard];
+    return NO;
 }
 
 #pragma mark - SPStatusBarDelegate (menu)
@@ -449,7 +468,10 @@
     // Re-apply hotkey config
     struct SPHotkeyConfig newConfig = sp_core_get_hotkey_config();
     [self applyHotkeyConfig:newConfig restartMonitorIfNeeded:YES];
-    NSLog(@"[Koe] Hotkey monitor reloaded after setup wizard save");
+
+    // Apply menu icon visibility
+    [self applyMenuIconVisibility];
+    NSLog(@"[Koe] Config reloaded after setup wizard save");
 }
 
 @end
