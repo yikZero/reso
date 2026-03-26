@@ -11,15 +11,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Koe</string>
+	<string>Reso</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleDisplayName</key>
-	<string>Koe</string>
+	<string>Reso</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>10</string>
+	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSApplicationCategoryType</key>
@@ -27,7 +27,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Koe needs microphone access to capture your speech for voice input.</string>
+	<string>Reso needs microphone access to capture your speech for voice input.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SPUpdateFeedURL</key>

@@ -1,4 +1,4 @@
-name: Koe
+name: Reso
 options:
   deploymentTarget:
     macOS: "13.0"
@@ -7,24 +7,24 @@ options:
 
 settings:
   base:
-    PRODUCT_BUNDLE_IDENTIFIER: nz.owo.koe
+    PRODUCT_BUNDLE_IDENTIFIER: com.yikzero.reso
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     ENABLE_HARDENED_RUNTIME: YES
-    APP_UPDATE_FEED_URL: "https://raw.githubusercontent.com/missuo/koe/main/docs/update-feed.json"
+    APP_UPDATE_FEED_URL: "https://raw.githubusercontent.com/yikZero/reso/main/docs/update-feed.json"
 
 targets:
-  Koe:
+  Reso:
     type: application
     platform: macOS
     sources:
-      - path: Koe
+      - path: Reso
         excludes:
           - "*.entitlements"
     settings:
       base:
-        INFOPLIST_FILE: Koe/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Koe/Koe.entitlements
-        PRODUCT_NAME: Koe
+        INFOPLIST_FILE: Reso/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Reso/Reso.entitlements
+        PRODUCT_NAME: Reso
         HEADER_SEARCH_PATHS:
           - "$(inherited)"
           - "$(SRCROOT)/../koe-core/target"

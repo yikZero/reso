@@ -315,7 +315,7 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable
                     backing:NSBackingStoreBuffered
                       defer:YES];
-    window.title = @"Koe Settings";
+    window.title = @"Reso Settings";
     window.toolbarStyle = NSWindowToolbarStylePreference;
 
     self = [super initWithWindow:window];

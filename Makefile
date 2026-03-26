@@ -7,7 +7,7 @@ build: generate build-rust build-xcode
 
 build-x86_64: generate
 	cargo build --manifest-path koe-core/Cargo.toml --release --target x86_64-apple-darwin
-	cd KoeApp && xcodebuild -project Koe.xcodeproj -scheme Koe -configuration Release ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO build
+	cd KoeApp && xcodebuild -project Reso.xcodeproj -scheme Reso -configuration Release ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO build
 
 generate:
 	cd KoeApp && xcodegen generate
@@ -16,11 +16,11 @@ build-rust:
 	cargo build --manifest-path koe-core/Cargo.toml --release --target $(ARCH)
 
 build-xcode:
-	cd KoeApp && xcodebuild -project Koe.xcodeproj -scheme Koe -configuration Release ARCHS=$(XCODE_ARCH) build
+	cd KoeApp && xcodebuild -project Reso.xcodeproj -scheme Reso -configuration Release ARCHS=$(XCODE_ARCH) build
 
 clean:
 	cargo clean
-	cd KoeApp && xcodebuild -project Koe.xcodeproj -scheme Koe clean
+	cd KoeApp && xcodebuild -project Reso.xcodeproj -scheme Reso clean
 
 run:
-	open "$$(xcodebuild -project KoeApp/Koe.xcodeproj -scheme Koe -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILD_DIR' | head -1 | awk '{print $$3}')/Debug/Koe.app"
+	open "$$(xcodebuild -project KoeApp/Reso.xcodeproj -scheme Reso -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILD_DIR' | head -1 | awk '{print $$3}')/Debug/Reso.app"

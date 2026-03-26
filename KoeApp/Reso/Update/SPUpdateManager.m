@@ -82,7 +82,7 @@ static NSTimeInterval const kSPInitialAutomaticCheckDelay = 8.0;
     if (self.isChecking) {
         if (userInitiated) {
             [self showAlertWithTitle:@"Already Checking"
-                     informativeText:@"Koe is already checking for updates."
+                     informativeText:@"Reso is already checking for updates."
                            buttonOne:@"OK"
                            buttonTwo:nil
                          buttonThree:nil
@@ -173,7 +173,7 @@ static NSTimeInterval const kSPInitialAutomaticCheckDelay = 8.0;
     if (![self isFeedVersion:feedVersion build:feedBuild newerThanCurrentVersion:[self currentAppVersionString]
                        build:[self currentAppBuildNumber]]) {
         if (userInitiated) {
-            NSString *message = [NSString stringWithFormat:@"Koe %@ (%ld) is currently the newest version available.",
+            NSString *message = [NSString stringWithFormat:@"Reso %@ (%ld) is currently the newest version available.",
                                  [self currentAppVersionString], (long)[self currentAppBuildNumber]];
             [self showAlertWithTitle:@"You're Up to Date"
                      informativeText:message
@@ -250,7 +250,7 @@ static NSTimeInterval const kSPInitialAutomaticCheckDelay = 8.0;
     NSInteger feedBuild = [self integerValueFromObject:feed[@"build"]];
     NSString *notesText = [self notesTextFromFeed:feed];
 
-    NSMutableString *message = [NSMutableString stringWithFormat:@"Koe %@",
+    NSMutableString *message = [NSMutableString stringWithFormat:@"Reso %@",
                                 feedVersion];
     if (feedBuild > 0) {
         [message appendFormat:@" (%ld)", (long)feedBuild];

@@ -328,7 +328,7 @@
 
 - (void)sendWarningNotification:(NSString *)message {
     UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-    content.title = @"Koe Warning";
+    content.title = @"Reso Warning";
     content.body = message;
     content.sound = nil;
 
@@ -347,7 +347,7 @@
 
 - (void)sendErrorNotification:(NSString *)message {
     UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-    content.title = @"Koe Error";
+    content.title = @"Reso Error";
     content.body = message;
     content.sound = nil; // Already playing error cue
 

@@ -190,7 +190,7 @@ static NSString *displayNameForHotkeyValue(NSString *value) {
 
     [menu addItem:[NSMenuItem separatorItem]];
 
-    NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit Koe"
+    NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit Reso"
                                                  action:@selector(quitApp:)
                                           keyEquivalent:@"q"];
     quit.target = self;
@@ -409,7 +409,7 @@ static NSString *displayNameForHotkeyValue(NSString *value) {
 
 - (NSView *)headerViewWithTitle:(NSString *)text {
     NSTextField *label = [NSTextField labelWithString:text];
-    label.font = [NSFont boldSystemFontOfSize:[NSFont systemFontSize]];
+    label.font = [NSFont systemFontOfSize:[NSFont systemFontSize] weight:NSFontWeightMedium];
     label.textColor = [NSColor labelColor];
     [label sizeToFit];
 

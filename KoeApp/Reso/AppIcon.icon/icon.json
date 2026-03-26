@@ -1,0 +1,25 @@
+{
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "reso-icon.png",
+          "name" : "reso-icon",
+          "position" : {
+            "scale" : 1.0,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
