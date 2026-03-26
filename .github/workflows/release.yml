@@ -34,12 +34,17 @@ jobs:
 
       - name: Create universal Rust library
         run: |
+          mkdir -p target/release
           lipo -create \
             target/aarch64-apple-darwin/release/libkoe_core.a \
             target/x86_64-apple-darwin/release/libkoe_core.a \
             -output target/release/libkoe_core.a
+          cp target/release/libkoe_core.a target/aarch64-apple-darwin/release/libkoe_core.a
+          cp target/release/libkoe_core.a target/x86_64-apple-darwin/release/libkoe_core.a
 
       - name: Build universal Xcode project
+        env:
+          SKIP_RUST_BUILD: "1"
         run: |
           cd KoeApp && xcodebuild \
             -project Reso.xcodeproj \

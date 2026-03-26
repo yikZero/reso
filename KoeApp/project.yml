@@ -46,6 +46,10 @@ targets:
     preBuildScripts:
       - name: Build Rust Library
         script: |
+          if [ "$SKIP_RUST_BUILD" = "1" ]; then
+            echo "Skipping Rust build (pre-built in CI)"
+            exit 0
+          fi
           export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
           cd "${SRCROOT}/.."
           if [ "$ARCHS" = "x86_64" ]; then
