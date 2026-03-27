@@ -1,9 +1,9 @@
 {
-  "version": "0.3.4",
-  "build": 7,
-  "published_at": "2026-03-27T13:37:26Z",
+  "version": "0.3.5",
+  "build": 8,
+  "published_at": "2026-03-27T14:05:56Z",
   "minimum_system_version": "13.0",
-  "download_url": "https://github.com/yikZero/reso/releases/download/v0.3.4/Reso-macOS.dmg",
-  "release_notes_url": "https://github.com/yikZero/reso/releases/tag/v0.3.4",
-  "notes": "支持在录音结束后的任意阶段（等待结果、粘贴前）通过取消键中断会话"
+  "download_url": "https://github.com/yikZero/reso/releases/download/v0.3.5/Reso-macOS.dmg",
+  "release_notes_url": "https://github.com/yikZero/reso/releases/tag/v0.3.5",
+  "notes": "覆盖层使用毛玻璃背景效果；支持应用内自动更新（DMG 下载替换）"
 }
