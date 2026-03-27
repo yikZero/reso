@@ -2,7 +2,7 @@ import Carbon
 import ApplicationServices
 
 final class PasteManager: @unchecked Sendable {
-    func simulatePaste(completion: @escaping () -> Void) {
+    func simulatePaste(completion: @escaping @Sendable () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) {
             self.performPaste()
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
