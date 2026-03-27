@@ -1,58 +1,29 @@
-/// Configuration for an ASR session.
+/// Configuration for a Gemini Live ASR session.
 #[derive(Debug, Clone)]
 pub struct AsrConfig {
-    /// WebSocket endpoint URL
-    pub url: String,
-    /// X-Api-App-Key (App ID from Volcengine console)
-    pub app_key: String,
-    /// X-Api-Access-Key (Access Token from Volcengine console)
-    pub access_key: String,
-    /// X-Api-Resource-Id (e.g. "volc.bigasr.sauc.duration")
-    pub resource_id: String,
-    /// Audio sample rate in Hz (default: 16000)
-    pub sample_rate_hz: u32,
-    /// Connection timeout in milliseconds (default: 3000)
-    pub connect_timeout_ms: u64,
-    /// Timeout waiting for final ASR result after finish signal (default: 5000)
-    pub final_wait_timeout_ms: u64,
-    /// Enable DDC (disfluency removal / smoothing)
-    pub enable_ddc: bool,
-    /// Enable ITN (inverse text normalization)
-    pub enable_itn: bool,
-    /// Enable automatic punctuation
-    pub enable_punc: bool,
-    /// Enable two-pass recognition (streaming + non-streaming re-recognition)
-    pub enable_nonstream: bool,
-    /// Hotwords for improved recognition accuracy
-    pub hotwords: Vec<String>,
-
-    // ─── Gemini Live API fields ─────────────────────────────────────
     /// Gemini API key
-    pub gemini_api_key: String,
+    pub api_key: String,
     /// Gemini model name (e.g. "gemini-3.1-flash-live-preview")
-    pub gemini_model: String,
+    pub model: String,
     /// System prompt for Gemini (used as systemInstruction)
     pub system_prompt: String,
+    /// Audio sample rate in Hz (default: 16000)
+    pub sample_rate_hz: u32,
+    /// Connection timeout in milliseconds (default: 5000)
+    pub connect_timeout_ms: u64,
+    /// Timeout waiting for final result after finish signal (default: 10000)
+    pub final_wait_timeout_ms: u64,
 }
 
 impl Default for AsrConfig {
     fn default() -> Self {
         Self {
-            url: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async".into(),
-            app_key: String::new(),
-            access_key: String::new(),
-            resource_id: "volc.seedasr.sauc.duration".into(),
-            sample_rate_hz: 16000,
-            connect_timeout_ms: 3000,
-            final_wait_timeout_ms: 5000,
-            enable_ddc: true,
-            enable_itn: true,
-            enable_punc: true,
-            enable_nonstream: true,
-            hotwords: Vec::new(),
-            gemini_api_key: String::new(),
-            gemini_model: "gemini-3.1-flash-live-preview".into(),
+            api_key: String::new(),
+            model: "gemini-3.1-flash-live-preview".into(),
             system_prompt: String::new(),
+            sample_rate_hz: 16000,
+            connect_timeout_ms: 5000,
+            final_wait_timeout_ms: 10000,
         }
     }
 }

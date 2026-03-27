@@ -286,7 +286,7 @@ typedef NS_ENUM(NSInteger, SPOverlayMode) {
         text   = @"Listening…";
         accent = [NSColor colorWithRed:1.0 green:0.32 blue:0.32 alpha:1.0];
         mode   = SPOverlayModeWaveform;
-    } else if ([state hasPrefix:@"connecting_asr"] || [state hasPrefix:@"finalizing_asr"] || [state isEqualToString:@"correcting"]) {
+    } else if ([state hasPrefix:@"connecting_asr"] || [state hasPrefix:@"finalizing_asr"]) {
         text   = @"Processing…";
         accent = [NSColor colorWithRed:0.35 green:0.78 blue:1.0 alpha:1.0];
         mode   = SPOverlayModeProcessing;

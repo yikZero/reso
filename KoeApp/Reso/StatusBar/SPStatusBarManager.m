@@ -263,7 +263,7 @@ static NSString *displayNameForHotkeyValue(NSString *value) {
         self.statusMenuItem.title = [NSString stringWithFormat:@"Ready — v%@", ver];
     } else if ([state hasPrefix:@"recording"]) {
         self.statusMenuItem.title = @"Listening...";
-    } else if ([state isEqualToString:@"connecting_asr"] || [state isEqualToString:@"finalizing_asr"] || [state isEqualToString:@"correcting"]) {
+    } else if ([state isEqualToString:@"connecting_asr"] || [state isEqualToString:@"finalizing_asr"]) {
         self.statusMenuItem.title = @"Processing...";
     } else if ([state hasPrefix:@"preparing_paste"] || [state isEqualToString:@"pasting"]) {
         self.statusMenuItem.title = @"Copied to clipboard";
