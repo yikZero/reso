@@ -1,14 +1,14 @@
 name: Reso
 options:
   deploymentTarget:
-    macOS: "13.0"
+    macOS: "15.0"
   xcodeVersion: "16.0"
   defaultConfig: Release
 
 settings:
   base:
     PRODUCT_BUNDLE_IDENTIFIER: com.yikzero.reso
-    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
     ENABLE_HARDENED_RUNTIME: YES
     APP_UPDATE_FEED_URL: "https://raw.githubusercontent.com/yikZero/reso/main/docs/update-feed.json"
 
@@ -28,6 +28,8 @@ targets:
         CODE_SIGN_IDENTITY: "Apple Development"
         DEVELOPMENT_TEAM: 648N996R87
         CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
+        SWIFT_OBJC_BRIDGING_HEADER: "Reso/Reso-Bridging-Header.h"
         HEADER_SEARCH_PATHS:
           - "$(inherited)"
           - "$(SRCROOT)/../koe-core/target"
@@ -44,7 +46,6 @@ targets:
           - "-framework CoreFoundation"
           - "-framework UserNotifications"
         ENABLE_APP_SANDBOX: NO
-        CLANG_ENABLE_OBJC_ARC: YES
     dependencies: []
     preBuildScripts:
       - name: Build Rust Library
@@ -71,4 +72,4 @@ targets:
       - AudioToolbox
       - ServiceManagement
       - UserNotifications
-      - sdk: libsqlite3.tbd
+      - SwiftData
