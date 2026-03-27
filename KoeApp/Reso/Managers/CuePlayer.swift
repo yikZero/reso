@@ -1,37 +1,22 @@
 import AppKit
 
 final class CuePlayer {
-    private var startSoundEnabled = true
-    private var stopSoundEnabled = true
-    private var errorSoundEnabled = true
-
-    func reloadFeedbackConfig() {
-        let config = RustBridge.shared.getFeedbackConfig()
-        startSoundEnabled = config.start_sound
-        stopSoundEnabled = config.stop_sound
-        errorSoundEnabled = config.error_sound
-    }
+    private let startSound = NSSound(named: "Tink")
+    private let stopSound = NSSound(named: "Pop")
+    private let errorSound = NSSound(named: "Basso")
 
     func playStart() {
-        guard startSoundEnabled else { return }
-        playSystemSound("Tink")
+        guard RustBridge.shared.getFeedbackConfig().start_sound else { return }
+        startSound?.play()
     }
 
     func playStop() {
-        guard stopSoundEnabled else { return }
-        playSystemSound("Pop")
+        guard RustBridge.shared.getFeedbackConfig().stop_sound else { return }
+        stopSound?.play()
     }
 
     func playError() {
-        guard errorSoundEnabled else { return }
-        playSystemSound("Basso")
-    }
-
-    private func playSystemSound(_ name: String) {
-        guard let sound = NSSound(named: NSSound.Name(name)) else {
-            print("[CuePlayer] system sound '\(name)' not found")
-            return
-        }
-        sound.play()
+        guard RustBridge.shared.getFeedbackConfig().error_sound else { return }
+        errorSound?.play()
     }
 }

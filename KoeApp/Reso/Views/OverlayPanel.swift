@@ -7,7 +7,6 @@ final class OverlayPanel {
     private var hostingView: NSHostingView<OverlayView>?
     private(set) var currentState: SessionState = .idle
 
-    private let pillHeight: CGFloat = 36
     private let bottomMargin: CGFloat = 50
     private let maxWidth: CGFloat = 600
 
@@ -20,7 +19,7 @@ final class OverlayPanel {
 
     private func setupPanel() {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 180, height: pillHeight),
+            contentRect: NSRect(x: 0, y: 0, width: 180, height: OverlayLayout.pillHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -82,13 +81,13 @@ final class OverlayPanel {
         let font = NSFont.systemFont(ofSize: 13, weight: .medium)
         let text = (hostingView?.rootView.statusText) ?? ""
         let textSize = (text as NSString).size(withAttributes: [.font: font])
-        let desiredWidth = min(maxWidth, 14 + 28 + 6 + textSize.width + 14 + 10)
+        let desiredWidth = min(maxWidth, OverlayLayout.horizontalPad + OverlayLayout.iconAreaWidth + OverlayLayout.iconTextGap + textSize.width + OverlayLayout.horizontalPad + 10)
 
         let screenFrame = screen.visibleFrame
         let x = screenFrame.midX - desiredWidth / 2
         let y = screenFrame.minY + bottomMargin
 
-        panel.setFrame(NSRect(x: x, y: y, width: desiredWidth, height: pillHeight), display: true)
+        panel.setFrame(NSRect(x: x, y: y, width: desiredWidth, height: OverlayLayout.pillHeight), display: true)
     }
 
     private func show() {

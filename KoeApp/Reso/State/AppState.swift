@@ -6,24 +6,20 @@ import SwiftData
 final class AppState {
     // MARK: - State
 
-    var sessionState: SessionState = .idle
+    var sessionState: SessionState = .idle {
+        didSet {
+            guard sessionState != oldValue else { return }
+            overlayPanel?.updateState(sessionState)
+        }
+    }
     var interimText: String = ""
     var initialized = false
+    private(set) var isSetupComplete = false
 
-    var isSetupComplete: Bool {
-        let configPath = NSHomeDirectory() + "/.koe/config.yaml"
-        guard let content = try? String(contentsOfFile: configPath, encoding: .utf8) else { return false }
-        let lines = content.components(separatedBy: "\n")
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("api_key:") {
-                let value = trimmed.dropFirst("api_key:".count)
-                    .trimmingCharacters(in: .whitespaces)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                return !value.isEmpty && value != "${GEMINI_API_KEY}"
-            }
-        }
-        return false
+    func refreshSetupComplete() {
+        let yaml = koeReadConfig()
+        let apiKey = koeYamlRead(yaml, key: "api_key")
+        isSetupComplete = !apiKey.isEmpty && apiKey != "${GEMINI_API_KEY}"
     }
 
     // MARK: - Managers
@@ -44,6 +40,8 @@ final class AppState {
     // MARK: - Initialization
 
     func initialize() async {
+        refreshSetupComplete()
+
         do {
             modelContainer = try ModelContainer(for: SessionHistory.self)
         } catch {
@@ -127,6 +125,7 @@ final class AppState {
         }
 
         applyMenuIconVisibility()
+        refreshSetupComplete()
     }
 
     func applyMenuIconVisibility() {
@@ -142,11 +141,9 @@ final class AppState {
 
     private func startSession(mode: SessionMode) {
         recordingStartTime = Date()
-        cuePlayer.reloadFeedbackConfig()
         cuePlayer.playStart()
 
         sessionState = mode == .hold ? .recordingHold : .recordingToggle
-        overlayPanel?.updateState(sessionState)
 
         let frontApp = NSWorkspace.shared.frontmostApplication
         let bundleId = frontApp?.bundleIdentifier
@@ -174,7 +171,6 @@ final class AppState {
         RustBridge.shared.cancelSession()
         recordingStartTime = nil
         sessionState = .idle
-        overlayPanel?.updateState(.idle)
     }
 
     // MARK: - Audio Device Changes
@@ -192,13 +188,14 @@ final class AppState {
         cuePlayer.playError()
         RustBridge.shared.endSession()
         hotkeyMonitor.resetToIdle()
-        sessionState = .failed
-        overlayPanel?.updateState(.failed)
+        transitionToFailed(dismissAfter: 2)
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+    private func transitionToFailed(dismissAfter delay: TimeInterval) {
+        sessionState = .failed
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             if self?.sessionState == .failed {
                 self?.sessionState = .idle
-                self?.overlayPanel?.updateState(.idle)
             }
         }
     }
@@ -243,18 +240,15 @@ extension AppState: RustBridgeDelegate {
             recordSession(durationMs: durationMs, text: text)
         }
 
+        sessionState = .idle
+
         if permissionManager.checkAccessibility() {
             clipboardManager.backup()
             clipboardManager.writeText(text)
-            sessionState = .idle
-            overlayPanel?.updateState(.idle)
-
             pasteManager.simulatePaste { [weak self] in
                 self?.clipboardManager.scheduleRestore(afterMs: 1500)
             }
         } else {
-            sessionState = .idle
-            overlayPanel?.updateState(.idle)
             showCopyableTextAlert(text)
         }
     }
@@ -270,16 +264,8 @@ extension AppState: RustBridgeDelegate {
         audioCaptureManager.stopCapture()
         hotkeyMonitor.resetToIdle()
 
-        sessionState = .failed
-        overlayPanel?.updateState(.failed)
-
         let dismissDelay: TimeInterval = isNoSpeech ? 1 : 2
-        DispatchQueue.main.asyncAfter(deadline: .now() + dismissDelay) { [weak self] in
-            if self?.sessionState == .failed {
-                self?.sessionState = .idle
-                self?.overlayPanel?.updateState(.idle)
-            }
-        }
+        transitionToFailed(dismissAfter: dismissDelay)
     }
 
     func rustBridgeDidReceiveWarning(_ message: String) {
@@ -292,7 +278,6 @@ extension AppState: RustBridgeDelegate {
             return
         default:
             sessionState = state
-            overlayPanel?.updateState(state)
         }
     }
 

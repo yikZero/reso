@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct MenuBarView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         if !appState.isSetupComplete {
@@ -51,6 +52,7 @@ struct MenuBarView: View {
             Divider()
 
             Button("Settings…") {
+                NSApp.activate(ignoringOtherApps: true)
                 openSettings()
             }
             .keyboardShortcut(",", modifiers: .command)
@@ -99,11 +101,6 @@ struct MenuBarView: View {
         case .failed:
             return "Something went wrong"
         }
-    }
-
-    private func openSettings() {
-        NSApp.activate()
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     private var launchAtLoginEnabled: Bool {

@@ -10,6 +10,15 @@ enum OverlayMode {
     case error
 }
 
+// MARK: - Layout Constants
+
+enum OverlayLayout {
+    static let pillHeight: CGFloat = 36
+    static let iconAreaWidth: CGFloat = 28
+    static let iconTextGap: CGFloat = 6
+    static let horizontalPad: CGFloat = 14
+}
+
 // MARK: - Overlay View
 
 struct OverlayView: View {
@@ -20,24 +29,18 @@ struct OverlayView: View {
     @State private var tick: Int = 0
     @State private var animationTimer: Timer?
 
-    private let pillHeight: CGFloat = 36
-    private let pillRadius: CGFloat = 18
-    private let iconAreaWidth: CGFloat = 28
-    private let iconTextGap: CGFloat = 6
-    private let horizontalPad: CGFloat = 14
-
     var body: some View {
-        HStack(spacing: iconTextGap) {
+        HStack(spacing: OverlayLayout.iconTextGap) {
             iconView
-                .frame(width: iconAreaWidth, height: pillHeight - 8)
+                .frame(width: OverlayLayout.iconAreaWidth, height: OverlayLayout.pillHeight - 8)
 
             Text(statusText)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
         }
-        .padding(.horizontal, horizontalPad)
-        .frame(height: pillHeight)
+        .padding(.horizontal, OverlayLayout.horizontalPad)
+        .frame(height: OverlayLayout.pillHeight)
         .background(
             Capsule()
                 .fill(.black.opacity(0.70))

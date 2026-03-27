@@ -8,14 +8,6 @@ struct SetupFlowView: View {
     @State private var cancelKey: String = "left_option"
     @State private var errorMessage: String?
 
-    private let keyOptions = [
-        ("fn", "Fn"),
-        ("left_option", "Left Option"),
-        ("right_option", "Right Option"),
-        ("left_command", "Left Command"),
-        ("right_command", "Right Command"),
-    ]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Setup Required")
@@ -32,7 +24,7 @@ struct SetupFlowView: View {
                 Text("Trigger Key:")
                     .font(.caption)
                 Picker("", selection: $triggerKey) {
-                    ForEach(keyOptions, id: \.0) { key, label in
+                    ForEach(koeKeyOptions, id: \.key) { key, label in
                         Text(label).tag(key)
                     }
                 }
@@ -44,7 +36,7 @@ struct SetupFlowView: View {
                 Text("Cancel Key:")
                     .font(.caption)
                 Picker("", selection: $cancelKey) {
-                    ForEach(keyOptions, id: \.0) { key, label in
+                    ForEach(koeKeyOptions, id: \.key) { key, label in
                         Text(label).tag(key)
                     }
                 }
@@ -74,10 +66,7 @@ struct SetupFlowView: View {
             return
         }
 
-        let configDir = NSHomeDirectory() + "/.koe"
-        let configPath = configDir + "/config.yaml"
-
-        var yaml = (try? String(contentsOfFile: configPath, encoding: .utf8)) ?? ""
+        var yaml = koeReadConfig()
         if yaml.isEmpty {
             yaml = """
             asr:
@@ -104,13 +93,13 @@ struct SetupFlowView: View {
             """
         }
 
-        yaml = yamlSet(yaml, key: "api_key", value: apiKey)
-        yaml = yamlSet(yaml, key: "trigger_key", value: triggerKey)
-        yaml = yamlSet(yaml, key: "cancel_key", value: cancelKey)
+        yaml = koeYamlWrite(yaml, key: "api_key", value: apiKey)
+        yaml = koeYamlWrite(yaml, key: "trigger_key", value: triggerKey)
+        yaml = koeYamlWrite(yaml, key: "cancel_key", value: cancelKey)
 
         do {
-            try FileManager.default.createDirectory(atPath: configDir, withIntermediateDirectories: true)
-            try yaml.write(toFile: configPath, atomically: true, encoding: .utf8)
+            try FileManager.default.createDirectory(atPath: KoePaths.configDir, withIntermediateDirectories: true)
+            koeWriteConfig(yaml)
             appState.reloadConfig()
             errorMessage = nil
         } catch {
@@ -118,11 +107,5 @@ struct SetupFlowView: View {
         }
     }
 
-    private func yamlSet(_ yaml: String, key: String, value: String) -> String {
-        let pattern = "(\(key):\\s*).*"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return yaml }
-        let range = NSRange(yaml.startIndex..., in: yaml)
-        let quoted = "\"\(value)\""
-        return regex.stringByReplacingMatches(in: yaml, range: range, withTemplate: "$1\(quoted)")
-    }
+
 }

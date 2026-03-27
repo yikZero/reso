@@ -1,19 +1,21 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         TabView {
             Tab("Gemini", systemImage: "sparkle") {
-                AsrSettingsTab()
+                AsrSettingsTab(appState: appState)
             }
             Tab("Controls", systemImage: "keyboard") {
-                HotkeySettingsTab()
+                HotkeySettingsTab(appState: appState)
             }
             Tab("Dictionary", systemImage: "text.book.closed") {
                 DictionarySettingsTab()
             }
             Tab("Prompt", systemImage: "text.bubble") {
-                PromptSettingsTab()
+                PromptSettingsTab(appState: appState)
             }
         }
         .frame(width: 500, height: 380)
@@ -23,6 +25,7 @@ struct SettingsView: View {
 // MARK: - ASR Settings
 
 private struct AsrSettingsTab: View {
+    let appState: AppState
     @State private var apiKey = ""
     @State private var model = ""
     @State private var showKey = false
@@ -65,35 +68,29 @@ private struct AsrSettingsTab: View {
     }
 
     private func load() {
-        let yaml = readConfig()
-        apiKey = yamlRead(yaml, key: "api_key")
-        model = yamlRead(yaml, key: "model").isEmpty ? "gemini-3.1-flash-live-preview" : yamlRead(yaml, key: "model")
+        let yaml = koeReadConfig()
+        apiKey = koeYamlRead(yaml, key: "api_key")
+        let m = koeYamlRead(yaml, key: "model")
+        model = m.isEmpty ? "gemini-3.1-flash-live-preview" : m
     }
 
     private func save() {
-        var yaml = readConfig()
-        yaml = yamlWrite(yaml, key: "api_key", value: apiKey)
-        yaml = yamlWrite(yaml, key: "model", value: model)
-        writeConfig(yaml)
-        RustBridge.shared.reloadConfig()
+        var yaml = koeReadConfig()
+        yaml = koeYamlWrite(yaml, key: "api_key", value: apiKey)
+        yaml = koeYamlWrite(yaml, key: "model", value: model)
+        koeWriteConfig(yaml)
+        appState.reloadConfig()
     }
 }
 
 // MARK: - Hotkey Settings
 
 private struct HotkeySettingsTab: View {
+    let appState: AppState
     @State private var triggerKey = "fn"
     @State private var cancelKey = "left_option"
     @State private var hideMenuIcon = false
     @State private var errorMessage: String?
-
-    private let keyOptions = [
-        ("fn", "Fn"),
-        ("left_option", "Left Option"),
-        ("right_option", "Right Option"),
-        ("left_command", "Left Command"),
-        ("right_command", "Right Command"),
-    ]
 
     var body: some View {
         Form {
@@ -105,12 +102,12 @@ private struct HotkeySettingsTab: View {
 
             Section("Keys") {
                 Picker("Trigger Key", selection: $triggerKey) {
-                    ForEach(keyOptions, id: \.0) { key, label in
+                    ForEach(koeKeyOptions, id: \.key) { key, label in
                         Text(label).tag(key)
                     }
                 }
                 Picker("Cancel Key", selection: $cancelKey) {
-                    ForEach(keyOptions, id: \.0) { key, label in
+                    ForEach(koeKeyOptions, id: \.key) { key, label in
                         Text(label).tag(key)
                     }
                 }
@@ -138,10 +135,12 @@ private struct HotkeySettingsTab: View {
     }
 
     private func load() {
-        let yaml = readConfig()
-        triggerKey = yamlRead(yaml, key: "trigger_key").isEmpty ? "fn" : yamlRead(yaml, key: "trigger_key")
-        cancelKey = yamlRead(yaml, key: "cancel_key").isEmpty ? "left_option" : yamlRead(yaml, key: "cancel_key")
-        hideMenuIcon = yamlRead(yaml, key: "hide_menu_icon") == "true"
+        let yaml = koeReadConfig()
+        let t = koeYamlRead(yaml, key: "trigger_key")
+        triggerKey = t.isEmpty ? "fn" : t
+        let c = koeYamlRead(yaml, key: "cancel_key")
+        cancelKey = c.isEmpty ? "left_option" : c
+        hideMenuIcon = koeYamlRead(yaml, key: "hide_menu_icon") == "true"
     }
 
     private func save() {
@@ -151,12 +150,12 @@ private struct HotkeySettingsTab: View {
         }
         errorMessage = nil
 
-        var yaml = readConfig()
-        yaml = yamlWrite(yaml, key: "trigger_key", value: triggerKey)
-        yaml = yamlWrite(yaml, key: "cancel_key", value: cancelKey)
-        yaml = yamlWrite(yaml, key: "hide_menu_icon", value: hideMenuIcon ? "true" : "false")
-        writeConfig(yaml)
-        RustBridge.shared.reloadConfig()
+        var yaml = koeReadConfig()
+        yaml = koeYamlWrite(yaml, key: "trigger_key", value: triggerKey)
+        yaml = koeYamlWrite(yaml, key: "cancel_key", value: cancelKey)
+        yaml = koeYamlWrite(yaml, key: "hide_menu_icon", value: hideMenuIcon ? "true" : "false")
+        koeWriteConfig(yaml)
+        appState.reloadConfig()
     }
 }
 
@@ -188,19 +187,18 @@ private struct DictionarySettingsTab: View {
     }
 
     private func load() {
-        let path = NSHomeDirectory() + "/.koe/dictionary.txt"
-        text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        text = (try? String(contentsOfFile: KoePaths.dictionaryFile, encoding: .utf8)) ?? ""
     }
 
     private func save() {
-        let path = NSHomeDirectory() + "/.koe/dictionary.txt"
-        try? text.write(toFile: path, atomically: true, encoding: .utf8)
+        try? text.write(toFile: KoePaths.dictionaryFile, atomically: true, encoding: .utf8)
     }
 }
 
 // MARK: - System Prompt Settings
 
 private struct PromptSettingsTab: View {
+    let appState: AppState
     @State private var text = ""
 
     var body: some View {
@@ -226,59 +224,11 @@ private struct PromptSettingsTab: View {
     }
 
     private func load() {
-        let path = NSHomeDirectory() + "/.koe/system_prompt.txt"
-        text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        text = (try? String(contentsOfFile: KoePaths.systemPromptFile, encoding: .utf8)) ?? ""
     }
 
     private func save() {
-        let path = NSHomeDirectory() + "/.koe/system_prompt.txt"
-        try? text.write(toFile: path, atomically: true, encoding: .utf8)
-        RustBridge.shared.reloadConfig()
+        try? text.write(toFile: KoePaths.systemPromptFile, atomically: true, encoding: .utf8)
+        appState.reloadConfig()
     }
-}
-
-// MARK: - YAML Helpers
-
-private func configPath() -> String {
-    NSHomeDirectory() + "/.koe/config.yaml"
-}
-
-private func readConfig() -> String {
-    (try? String(contentsOfFile: configPath(), encoding: .utf8)) ?? ""
-}
-
-private func writeConfig(_ yaml: String) {
-    try? yaml.write(toFile: configPath(), atomically: true, encoding: .utf8)
-}
-
-private func yamlRead(_ yaml: String, key: String) -> String {
-    for line in yaml.components(separatedBy: "\n") {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.hasPrefix("\(key):") {
-            let value = trimmed.dropFirst("\(key):".count)
-                .trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            return value
-        }
-    }
-    return ""
-}
-
-private func yamlWrite(_ yaml: String, key: String, value: String) -> String {
-    let lines = yaml.components(separatedBy: "\n")
-    var result: [String] = []
-    var replaced = false
-    for line in lines {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if !replaced && trimmed.hasPrefix("\(key):") {
-            let indent = line.prefix(while: { $0 == " " || $0 == "\t" })
-            let needsQuotes = value.contains(" ") || value.contains("#") || value.contains("$")
-            let formatted = needsQuotes ? "\"\(value)\"" : value
-            result.append("\(indent)\(key): \(formatted)")
-            replaced = true
-        } else {
-            result.append(line)
-        }
-    }
-    return result.joined(separator: "\n")
 }
