@@ -6,12 +6,10 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionState {
     Idle,
-    HotkeyDecisionPending,
     ConnectingAsr,
     RecordingHold,
     RecordingToggle,
     FinalizingAsr,
-    Correcting,
     PreparingPaste,
     Pasting,
     RestoringClipboard,
@@ -23,12 +21,10 @@ impl fmt::Display for SessionState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             SessionState::Idle => "idle",
-            SessionState::HotkeyDecisionPending => "hotkey_decision_pending",
             SessionState::ConnectingAsr => "connecting_asr",
             SessionState::RecordingHold => "recording_hold",
             SessionState::RecordingToggle => "recording_toggle",
             SessionState::FinalizingAsr => "finalizing_asr",
-            SessionState::Correcting => "correcting",
             SessionState::PreparingPaste => "preparing_paste",
             SessionState::Pasting => "pasting",
             SessionState::RestoringClipboard => "restoring_clipboard",
@@ -45,8 +41,7 @@ pub struct Session {
     pub state: SessionState,
     pub frontmost_bundle_id: Option<String>,
     pub frontmost_pid: i32,
-    pub asr_text: Option<String>,
-    pub corrected_text: Option<String>,
+    pub final_text: Option<String>,
     pub started_at: std::time::Instant,
 }
 
@@ -58,8 +53,7 @@ impl Session {
             state: SessionState::ConnectingAsr,
             frontmost_bundle_id,
             frontmost_pid,
-            asr_text: None,
-            corrected_text: None,
+            final_text: None,
             started_at: std::time::Instant::now(),
         }
     }
@@ -93,10 +87,8 @@ impl Session {
                 | (RecordingHold, Failed)
                 | (RecordingToggle, FinalizingAsr)
                 | (RecordingToggle, Failed)
-                | (FinalizingAsr, Correcting)
+                | (FinalizingAsr, PreparingPaste)
                 | (FinalizingAsr, Failed)
-                | (Correcting, PreparingPaste)
-                | (Correcting, Failed)
                 | (PreparingPaste, Pasting)
                 | (PreparingPaste, Failed)
                 | (Pasting, RestoringClipboard)

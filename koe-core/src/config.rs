@@ -8,8 +8,6 @@ pub struct Config {
     #[serde(default)]
     pub asr: AsrSection,
     #[serde(default)]
-    pub llm: LlmSection,
-    #[serde(default)]
     pub feedback: FeedbackSection,
     #[serde(default)]
     pub appearance: AppearanceSection,
@@ -19,102 +17,23 @@ pub struct Config {
     pub hotkey: HotkeySection,
 }
 
-// ─── ASR V2 Configuration ───────────────────────────────────────────
-
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum AsrProvider {
-    #[default]
-    Doubao,
-    Gemini,
-}
+// ─── ASR Configuration ──────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct AsrSection {
-    #[serde(default)]
-    pub provider: AsrProvider,
-
-    /// Doubao (豆包/火山引擎) ASR configuration
-    #[serde(default)]
-    pub doubao: DoubaoAsrConfig,
-
-    /// Gemini Live API configuration (combined ASR + LLM)
-    #[serde(default)]
-    pub gemini: GeminiAsrConfig,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct DoubaoAsrConfig {
-    #[serde(default = "default_asr_url")]
-    pub url: String,
-    #[serde(default)]
-    pub app_key: String,
-    #[serde(default)]
-    pub access_key: String,
-    #[serde(default = "default_resource_id")]
-    pub resource_id: String,
-    #[serde(default = "default_connect_timeout")]
-    pub connect_timeout_ms: u64,
-    #[serde(default = "default_final_wait_timeout")]
-    pub final_wait_timeout_ms: u64,
-    #[serde(default = "default_true")]
-    pub enable_ddc: bool,
-    #[serde(default = "default_true")]
-    pub enable_itn: bool,
-    #[serde(default = "default_true")]
-    pub enable_punc: bool,
-    #[serde(default = "default_true")]
-    pub enable_nonstream: bool,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct GeminiAsrConfig {
     #[serde(default)]
     pub api_key: String,
     #[serde(default = "default_gemini_model")]
     pub model: String,
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout_ms: u64,
-    #[serde(default = "default_gemini_final_wait_timeout")]
+    #[serde(default = "default_final_wait_timeout")]
     pub final_wait_timeout_ms: u64,
-}
-
-// ─── Other Sections (unchanged) ─────────────────────────────────────
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct LlmSection {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    #[serde(default)]
-    pub base_url: String,
-    #[serde(default)]
-    pub api_key: String,
-    #[serde(default)]
-    pub model: String,
-    #[serde(default)]
-    pub temperature: f64,
-    #[serde(default = "default_top_p")]
-    pub top_p: f64,
-    #[serde(default = "default_llm_timeout")]
-    pub timeout_ms: u64,
-    #[serde(default = "default_max_output_tokens")]
-    pub max_output_tokens: u32,
-    #[serde(default = "default_llm_max_token_parameter")]
-    pub max_token_parameter: LlmMaxTokenParameter,
-    #[serde(default = "default_dictionary_max_candidates")]
-    pub dictionary_max_candidates: usize,
     #[serde(default = "default_system_prompt_path")]
     pub system_prompt_path: String,
-    #[serde(default = "default_user_prompt_path")]
-    pub user_prompt_path: String,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-pub enum LlmMaxTokenParameter {
-    MaxTokens,
-    MaxCompletionTokens,
-}
+// ─── Other Sections ─────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct FeedbackSection {
@@ -250,41 +169,17 @@ impl HotkeySection {
 
 // ─── Defaults ───────────────────────────────────────────────────────
 
-fn default_asr_url() -> String {
-    "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async".into()
-}
-fn default_resource_id() -> String {
-    "volc.seedasr.sauc.duration".into()
-}
 fn default_connect_timeout() -> u64 {
-    3000
+    5000
 }
 fn default_final_wait_timeout() -> u64 {
-    5000
+    10000
 }
 fn default_gemini_model() -> String {
     "gemini-3.1-flash-live-preview".into()
 }
-fn default_gemini_final_wait_timeout() -> u64 {
-    10000
-}
 fn default_true() -> bool {
     true
-}
-fn default_top_p() -> f64 {
-    1.0
-}
-fn default_llm_timeout() -> u64 {
-    8000
-}
-fn default_max_output_tokens() -> u32 {
-    1024
-}
-fn default_dictionary_max_candidates() -> usize {
-    0
-}
-fn default_llm_max_token_parameter() -> LlmMaxTokenParameter {
-    LlmMaxTokenParameter::MaxCompletionTokens
 }
 fn default_dictionary_path() -> String {
     "dictionary.txt".into()
@@ -310,9 +205,6 @@ fn default_cancel_key_for_trigger(trigger_key: &str) -> &'static str {
         _ => "left_option",
     }
 }
-fn default_user_prompt_path() -> String {
-    "user_prompt.txt".into()
-}
 
 impl Default for Config {
     fn default() -> Self {
@@ -320,21 +212,6 @@ impl Default for Config {
     }
 }
 impl Default for AsrSection {
-    fn default() -> Self {
-        serde_yaml::from_str("{}").unwrap()
-    }
-}
-impl Default for DoubaoAsrConfig {
-    fn default() -> Self {
-        serde_yaml::from_str("{}").unwrap()
-    }
-}
-impl Default for GeminiAsrConfig {
-    fn default() -> Self {
-        serde_yaml::from_str("{}").unwrap()
-    }
-}
-impl Default for LlmSection {
     fn default() -> Self {
         serde_yaml::from_str("{}").unwrap()
     }
@@ -383,19 +260,9 @@ fn resolve_path(p: &str) -> PathBuf {
     }
 }
 
-/// Resolve dictionary path (relative to config dir).
-pub fn resolve_dictionary_path(config: &Config) -> PathBuf {
-    resolve_path(&config.dictionary.path)
-}
-
 /// Resolve system prompt path (relative to config dir).
 pub fn resolve_system_prompt_path(config: &Config) -> PathBuf {
-    resolve_path(&config.llm.system_prompt_path)
-}
-
-/// Resolve user prompt path (relative to config dir).
-pub fn resolve_user_prompt_path(config: &Config) -> PathBuf {
-    resolve_path(&config.llm.user_prompt_path)
+    resolve_path(&config.asr.system_prompt_path)
 }
 
 // ─── Environment Variable Substitution ──────────────────────────────
@@ -403,7 +270,6 @@ pub fn resolve_user_prompt_path(config: &Config) -> PathBuf {
 /// Replace ${VAR_NAME} patterns with environment variable values.
 fn substitute_env_vars(input: &str) -> String {
     let mut result = input.to_string();
-    // Simple regex-free approach
     loop {
         let start = match result.find("${") {
             Some(pos) => pos,
@@ -420,110 +286,9 @@ fn substitute_env_vars(input: &str) -> String {
     result
 }
 
-// ─── V1 → V2 Config Migration ──────────────────────────────────────
-
-/// V1 ASR fields that indicate the old flat format.
-const V1_ASR_KEYS: &[&str] = &[
-    "app_key", "access_key", "url", "resource_id",
-    "connect_timeout_ms", "final_wait_timeout_ms",
-    "enable_ddc", "enable_itn", "enable_punc", "enable_nonstream",
-];
-
-/// Check if the config file uses V1 ASR format (flat fields under `asr:`)
-/// and migrate it to V2 format (provider-based) in place.
-fn migrate_config_v1_to_v2(path: &Path) -> Result<bool> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|e| KoeError::Config(format!("read {}: {e}", path.display())))?;
-
-    let doc: serde_yaml::Value = serde_yaml::from_str(&raw)
-        .map_err(|e| KoeError::Config(format!("parse {}: {e}", path.display())))?;
-
-    let asr = match doc.get("asr") {
-        Some(v) => v,
-        None => return Ok(false),
-    };
-
-    let asr_map = match asr.as_mapping() {
-        Some(m) => m,
-        None => return Ok(false),
-    };
-
-    // If `asr` already has a `provider` key, it's already V2
-    if asr_map.contains_key(&serde_yaml::Value::String("provider".into())) {
-        return Ok(false);
-    }
-
-    // If `asr` has a `doubao` key, it's already V2 (just missing provider field, which defaults)
-    if asr_map.contains_key(&serde_yaml::Value::String("doubao".into())) {
-        return Ok(false);
-    }
-
-    // Check if any V1-specific key exists
-    let has_v1_keys = V1_ASR_KEYS.iter().any(|k| {
-        asr_map.contains_key(&serde_yaml::Value::String((*k).into()))
-    });
-
-    if !has_v1_keys {
-        return Ok(false);
-    }
-
-    log::info!("detected V1 ASR config, migrating to V2 format...");
-
-    // Extract V1 fields into a new doubao sub-mapping
-    let mut doubao_map = serde_yaml::Mapping::new();
-    let mut new_asr_map = serde_yaml::Mapping::new();
-
-    new_asr_map.insert(
-        serde_yaml::Value::String("provider".into()),
-        serde_yaml::Value::String("doubao".into()),
-    );
-
-    for (key, value) in asr_map {
-        let key_str = key.as_str().unwrap_or("");
-        if V1_ASR_KEYS.contains(&key_str) {
-            doubao_map.insert(key.clone(), value.clone());
-        } else {
-            // Preserve any unknown keys at the asr level
-            new_asr_map.insert(key.clone(), value.clone());
-        }
-    }
-
-    new_asr_map.insert(
-        serde_yaml::Value::String("doubao".into()),
-        serde_yaml::Value::Mapping(doubao_map),
-    );
-
-    // Rebuild the full document
-    let mut new_doc = match doc.as_mapping() {
-        Some(m) => m.clone(),
-        None => return Ok(false),
-    };
-    new_doc.insert(
-        serde_yaml::Value::String("asr".into()),
-        serde_yaml::Value::Mapping(new_asr_map),
-    );
-
-    // Write back with a header comment
-    let yaml_str = serde_yaml::to_string(&serde_yaml::Value::Mapping(new_doc))
-        .map_err(|e| KoeError::Config(format!("serialize migrated config: {e}")))?;
-
-    let output = format!(
-        "# Koe - Voice Input Tool Configuration\n\
-         # ~/.koe/config.yaml\n\
-         # Migrated to V2 format (multi-provider ASR)\n\n\
-         {yaml_str}"
-    );
-
-    std::fs::write(path, &output)
-        .map_err(|e| KoeError::Config(format!("write migrated config {}: {e}", path.display())))?;
-
-    log::info!("config migrated to V2 format successfully");
-    Ok(true)
-}
+// ─── Hotkey Config Normalization ────────────────────────────────────
 
 /// Ensure hotkey config persisted on disk includes both trigger and cancel keys.
-/// This backfills `hotkey.cancel_key` for older configs and normalizes duplicate
-/// trigger/cancel combinations into a valid persisted config.
 fn normalize_hotkey_config(path: &Path, config: &Config) -> Result<bool> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| KoeError::Config(format!("read {}: {e}", path.display())))?;
@@ -582,7 +347,6 @@ fn normalize_hotkey_config(path: &Path, config: &Config) -> Result<bool> {
 // ─── Load & Ensure ─────────────────────────────────────────────────
 
 /// Load config from ~/.koe/config.yaml.
-/// Automatically migrates V1 config to V2 if needed.
 /// Performs environment variable substitution before parsing.
 pub fn load_config() -> Result<Config> {
     let path = config_path();
@@ -592,13 +356,6 @@ pub fn load_config() -> Result<Config> {
             "config file not found: {}",
             path.display()
         )));
-    }
-
-    // Attempt V1 → V2 migration before loading
-    match migrate_config_v1_to_v2(&path) {
-        Ok(true) => log::info!("config file migrated from V1 to V2"),
-        Ok(false) => {}
-        Err(e) => log::warn!("config migration check failed (will try loading as-is): {e}"),
     }
 
     let raw = std::fs::read_to_string(&path)
@@ -625,7 +382,6 @@ pub fn ensure_defaults() -> Result<bool> {
     let config_file = config_path();
     let dict_file = dir.join("dictionary.txt");
     let system_prompt_file = dir.join("system_prompt.txt");
-    let user_prompt_file = dir.join("user_prompt.txt");
 
     let mut created = false;
 
@@ -639,7 +395,6 @@ pub fn ensure_defaults() -> Result<bool> {
         (&config_file, DEFAULT_CONFIG_YAML),
         (&dict_file, DEFAULT_DICTIONARY_TXT),
         (&system_prompt_file, DEFAULT_SYSTEM_PROMPT),
-        (&user_prompt_file, DEFAULT_USER_PROMPT),
     ];
 
     for (path, content) in defaults {
@@ -658,45 +413,12 @@ const DEFAULT_CONFIG_YAML: &str = r#"# Koe - Voice Input Tool Configuration
 # ~/.koe/config.yaml
 
 asr:
-  # ASR provider: "doubao" or "gemini"
-  # - doubao: Doubao ASR + separate LLM correction (two-step)
-  # - gemini: Gemini Live API, combined ASR + LLM in one step
-  provider: "gemini"
-
-  # Doubao (豆包) Streaming ASR 2.0 (优化版双向流式)
-  doubao:
-    url: "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
-    app_key: ""          # X-Api-App-Key (火山引擎 App ID)
-    access_key: ""       # X-Api-Access-Key (火山引擎 Access Token)
-    resource_id: "volc.seedasr.sauc.duration"
-    connect_timeout_ms: 3000
-    final_wait_timeout_ms: 5000
-    enable_ddc: true     # 语义顺滑 (去除口语重复/语气词)
-    enable_itn: true     # 文本规范化 (数字、日期等)
-    enable_punc: true    # 自动标点
-    enable_nonstream: true  # 二遍识别 (流式+非流式, 提升准确率)
-
   # Gemini Live API (combined ASR + LLM correction)
-  gemini:
-    api_key: ""          # Google AI API key, or use ${GEMINI_API_KEY}
-    model: "gemini-3.1-flash-live-preview"
-    connect_timeout_ms: 5000
-    final_wait_timeout_ms: 10000
-
-llm:
-  enabled: true        # set to false to skip LLM correction entirely (ignored when asr.provider is "gemini")
-  # OpenAI-compatible endpoint for text correction
-  base_url: "https://api.openai.com/v1"
-  api_key: ""          # or use ${LLM_API_KEY}
-  model: "gpt-5.4-nano"
-  temperature: 0
-  top_p: 1
-  timeout_ms: 8000
-  max_output_tokens: 1024
-  max_token_parameter: "max_completion_tokens"  # use "max_tokens" for older model endpoints
-  dictionary_max_candidates: 0             # 0 = send all entries to LLM
+  api_key: ""          # Google AI API key, or use ${GEMINI_API_KEY}
+  model: "gemini-3.1-flash-live-preview"
+  connect_timeout_ms: 5000
+  final_wait_timeout_ms: 10000
   system_prompt_path: "system_prompt.txt"  # relative to ~/.koe/
-  user_prompt_path: "user_prompt.txt"      # relative to ~/.koe/
 
 feedback:
   start_sound: false
@@ -714,14 +436,12 @@ hotkey:
 "#;
 
 const DEFAULT_DICTIONARY_TXT: &str = r#"# Koe User Dictionary
-# One term per line. These terms are prioritized during LLM correction.
+# One term per line. These terms can be referenced in the system prompt.
 # Lines starting with # are comments.
 
 "#;
 
 const DEFAULT_SYSTEM_PROMPT: &str = include_str!("default_system_prompt.txt");
-
-const DEFAULT_USER_PROMPT: &str = include_str!("default_user_prompt.txt");
 
 #[cfg(test)]
 mod tests {

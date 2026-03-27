@@ -1,9 +1,6 @@
-pub mod audio_buffer;
 pub mod config;
-pub mod dictionary;
 pub mod errors;
 pub mod ffi;
-pub mod llm;
 pub mod prompt;
 pub mod session;
 pub mod telemetry;
@@ -11,13 +8,11 @@ pub mod telemetry;
 use crate::config::Config;
 use crate::ffi::{
     cstr_to_str, invoke_final_text_ready, invoke_interim_text, invoke_session_error,
-    invoke_session_ready, invoke_session_warning, invoke_state_changed, SPCallbacks,
+    invoke_session_ready, invoke_state_changed, SPCallbacks,
     SPFeedbackConfig, SPHotkeyConfig, SPSessionContext, SPSessionMode,
 };
-use crate::llm::openai_compatible::OpenAiCompatibleProvider;
-use crate::llm::{CorrectionRequest, LlmProvider};
 use crate::session::{Session, SessionState};
-use koe_asr::{AsrConfig, AsrEvent, AsrProvider, DoubaoWsProvider, GeminiLiveProvider, TranscriptAggregator};
+use koe_asr::{AsrConfig, AsrEvent, AsrProvider, GeminiLiveProvider, TranscriptAggregator};
 
 use std::ffi::c_char;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,9 +28,7 @@ struct Core {
     session: Arc<Mutex<Option<Session>>>,
     cancelled: Arc<AtomicBool>,
     config: Config,
-    dictionary: Vec<String>,
     system_prompt: String,
-    user_prompt_template: String,
 }
 
 static CORE: Mutex<Option<Core>> = Mutex::new(None);
@@ -67,19 +60,8 @@ pub extern "C" fn sp_core_create(config_path: *const c_char) -> i32 {
         }
     };
 
-    // Load dictionary
-    let dict_path = config::resolve_dictionary_path(&cfg);
-    let dictionary = match dictionary::load_dictionary(&dict_path) {
-        Ok(d) => d,
-        Err(e) => {
-            log::warn!("failed to load dictionary: {e}");
-            vec![]
-        }
-    };
-
-    // Load prompts
+    // Load system prompt
     let system_prompt = prompt::load_system_prompt(&config::resolve_system_prompt_path(&cfg));
-    let user_prompt_template = prompt::load_user_prompt_template(&config::resolve_user_prompt_path(&cfg));
 
     let runtime = match Runtime::new() {
         Ok(rt) => rt,
@@ -95,9 +77,7 @@ pub extern "C" fn sp_core_create(config_path: *const c_char) -> i32 {
         session: Arc::new(Mutex::new(None)),
         cancelled: Arc::new(AtomicBool::new(false)),
         config: cfg,
-        dictionary,
         system_prompt,
-        user_prompt_template,
     };
 
     let mut global = CORE.lock().unwrap();
@@ -121,7 +101,7 @@ pub extern "C" fn sp_core_register_callbacks(callbacks: SPCallbacks) {
     ffi::register_callbacks(callbacks);
 }
 
-/// Reload configuration and dictionary from disk.
+/// Reload configuration from disk.
 /// Takes effect on the next session.
 #[no_mangle]
 pub extern "C" fn sp_core_reload_config() -> i32 {
@@ -135,25 +115,13 @@ pub extern "C" fn sp_core_reload_config() -> i32 {
         }
     };
 
-    let dict_path = config::resolve_dictionary_path(&cfg);
-    let dictionary = match dictionary::load_dictionary(&dict_path) {
-        Ok(d) => d,
-        Err(e) => {
-            log::warn!("reload dictionary failed: {e}");
-            vec![]
-        }
-    };
-
     let system_prompt = prompt::load_system_prompt(&config::resolve_system_prompt_path(&cfg));
-    let user_prompt_template = prompt::load_user_prompt_template(&config::resolve_user_prompt_path(&cfg));
 
     let mut global = CORE.lock().unwrap();
     if let Some(ref mut core) = *global {
         core.config = cfg;
-        core.dictionary = dictionary;
         core.system_prompt = system_prompt;
-        core.user_prompt_template = user_prompt_template;
-        log::info!("config, dictionary, and prompts reloaded");
+        log::info!("config and prompt reloaded");
     }
 
     0
@@ -180,15 +148,9 @@ pub extern "C" fn sp_core_session_begin(context: SPSessionContext) -> i32 {
         }
     };
 
-    // Hot-reload: re-read config, dictionary, and prompts at session start
-    // Files are tiny so overhead is negligible — no need to manually Reload Config
+    // Hot-reload: re-read config and prompt at session start
     if let Ok(new_cfg) = config::load_config() {
-        let dict_path = config::resolve_dictionary_path(&new_cfg);
-        if let Ok(d) = dictionary::load_dictionary(&dict_path) {
-            core.dictionary = d;
-        }
         core.system_prompt = prompt::load_system_prompt(&config::resolve_system_prompt_path(&new_cfg));
-        core.user_prompt_template = prompt::load_user_prompt_template(&config::resolve_user_prompt_path(&new_cfg));
         core.config = new_cfg;
     }
 
@@ -211,55 +173,23 @@ pub extern "C" fn sp_core_session_begin(context: SPSessionContext) -> i32 {
         *s = Some(session);
     }
 
-    // Capture config for the async task
-    let cfg = &core.config;
-    let provider = cfg.asr.provider;
-
-    let asr_config = match provider {
-        config::AsrProvider::Gemini => {
-            let gemini = &cfg.asr.gemini;
-            AsrConfig {
-                gemini_api_key: gemini.api_key.clone(),
-                gemini_model: gemini.model.clone(),
-                system_prompt: core.system_prompt.clone(),
-                sample_rate_hz: 16000,
-                connect_timeout_ms: gemini.connect_timeout_ms,
-                final_wait_timeout_ms: gemini.final_wait_timeout_ms,
-                ..Default::default()
-            }
-        }
-        config::AsrProvider::Doubao => {
-            let doubao = &cfg.asr.doubao;
-            AsrConfig {
-                url: doubao.url.clone(),
-                app_key: doubao.app_key.clone(),
-                access_key: doubao.access_key.clone(),
-                resource_id: doubao.resource_id.clone(),
-                sample_rate_hz: 16000,
-                connect_timeout_ms: doubao.connect_timeout_ms,
-                final_wait_timeout_ms: doubao.final_wait_timeout_ms,
-                enable_ddc: doubao.enable_ddc,
-                enable_itn: doubao.enable_itn,
-                enable_punc: doubao.enable_punc,
-                enable_nonstream: doubao.enable_nonstream,
-                hotwords: core.dictionary.clone(),
-                ..Default::default()
-            }
-        }
+    // Build ASR config
+    let asr_config = AsrConfig {
+        api_key: core.config.asr.api_key.clone(),
+        model: core.config.asr.model.clone(),
+        system_prompt: core.system_prompt.clone(),
+        sample_rate_hz: 16000,
+        connect_timeout_ms: core.config.asr.connect_timeout_ms,
+        final_wait_timeout_ms: core.config.asr.final_wait_timeout_ms,
     };
 
-    let llm_config = cfg.llm.clone();
-    let dictionary = core.dictionary.clone();
-    let dictionary_max_candidates = cfg.llm.dictionary_max_candidates;
-    let system_prompt = core.system_prompt.clone();
-    let user_prompt_template = core.user_prompt_template.clone();
-
-    // Spawn the session task with the selected provider
-    spawn_session(
-        &core.runtime, provider, session_arc, session_id, mode,
-        audio_rx, asr_config, llm_config, dictionary,
-        dictionary_max_candidates, system_prompt, user_prompt_template, cancelled,
-    );
+    // Spawn the session task
+    core.runtime.spawn(async move {
+        run_session(
+            session_arc, session_id, mode,
+            audio_rx, asr_config, cancelled,
+        ).await;
+    });
 
     0
 }
@@ -375,59 +305,12 @@ pub extern "C" fn sp_core_get_hotkey_config() -> SPHotkeyConfig {
 
 // ─── Session Task ───────────────────────────────────────────────────
 
-#[allow(clippy::too_many_arguments)]
-fn spawn_session(
-    runtime: &Runtime,
-    provider: config::AsrProvider,
-    session_arc: Arc<Mutex<Option<Session>>>,
-    session_id: String,
-    mode: SPSessionMode,
-    audio_rx: mpsc::Receiver<Vec<u8>>,
-    asr_config: AsrConfig,
-    llm_config: config::LlmSection,
-    dictionary: Vec<String>,
-    dictionary_max_candidates: usize,
-    system_prompt: String,
-    user_prompt_template: String,
-    cancelled: Arc<AtomicBool>,
-) {
-    match provider {
-        config::AsrProvider::Gemini => {
-            runtime.spawn(async move {
-                run_session(
-                    GeminiLiveProvider::new(), true,
-                    session_arc, session_id, mode, audio_rx, asr_config,
-                    llm_config, dictionary, dictionary_max_candidates,
-                    system_prompt, user_prompt_template, cancelled,
-                ).await;
-            });
-        }
-        config::AsrProvider::Doubao => {
-            runtime.spawn(async move {
-                run_session(
-                    DoubaoWsProvider::new(), false,
-                    session_arc, session_id, mode, audio_rx, asr_config,
-                    llm_config, dictionary, dictionary_max_candidates,
-                    system_prompt, user_prompt_template, cancelled,
-                ).await;
-            });
-        }
-    }
-}
-
-async fn run_session<A: AsrProvider>(
-    mut asr: A,
-    skip_llm: bool,
+async fn run_session(
     session_arc: Arc<Mutex<Option<Session>>>,
     session_id: String,
     mode: SPSessionMode,
     mut audio_rx: mpsc::Receiver<Vec<u8>>,
     asr_config: AsrConfig,
-    llm_config: config::LlmSection,
-    dictionary: Vec<String>,
-    dictionary_max_candidates: usize,
-    system_prompt: String,
-    user_prompt_template: String,
     cancelled: Arc<AtomicBool>,
 ) {
     let final_wait_timeout_ms = asr_config.final_wait_timeout_ms;
@@ -449,6 +332,7 @@ async fn run_session<A: AsrProvider>(
     invoke_session_ready();
 
     // --- Connect ASR ---
+    let mut asr = GeminiLiveProvider::new();
     if let Err(e) = asr.connect(&asr_config).await {
         log::error!("[{session_id}] ASR connection failed: {e}");
         invoke_session_error(&e.to_string());
@@ -547,8 +431,8 @@ async fn run_session<A: AsrProvider>(
 
     let _ = asr.close().await;
 
-    let asr_text = aggregator.best_text().to_string();
-    if asr_text.is_empty() {
+    let final_text = aggregator.best_text().to_string();
+    if final_text.is_empty() {
         log::warn!("[{session_id}] no ASR text available");
         invoke_session_error("no speech recognized");
         invoke_state_changed("failed");
@@ -556,96 +440,16 @@ async fn run_session<A: AsrProvider>(
         return;
     }
 
-    let interim_history = aggregator.interim_history(10).to_vec();
     log::info!(
-        "[{session_id}] ASR result: {} chars, {} interim revisions",
-        asr_text.len(),
-        interim_history.len(),
+        "[{session_id}] result: {} chars",
+        final_text.len(),
     );
 
-    // Store ASR text in session
+    // Deliver result
     {
         let mut s = session_arc.lock().unwrap();
         if let Some(ref mut session) = *s {
-            session.asr_text = Some(asr_text.clone());
-        }
-    }
-
-    // --- LLM Correction ---
-    // When using Gemini provider, LLM correction is already done in-stream
-    let llm_enabled = !skip_llm
-        && llm_config.enabled
-        && !llm_config.base_url.is_empty()
-        && !llm_config.api_key.is_empty();
-
-    let final_text = if llm_enabled {
-        {
-            let mut s = session_arc.lock().unwrap();
-            if let Some(ref mut session) = *s {
-                let _ = session.transition(SessionState::Correcting);
-            }
-        }
-        invoke_state_changed("correcting");
-
-        let llm = OpenAiCompatibleProvider::new(
-            llm_config.base_url,
-            llm_config.api_key,
-            llm_config.model,
-            llm_config.temperature,
-            llm_config.top_p,
-            llm_config.max_output_tokens,
-            llm_config.max_token_parameter,
-            llm_config.timeout_ms,
-        );
-
-        // Filter dictionary candidates for prompt
-        let candidates = prompt::filter_dictionary_candidates(
-            &dictionary,
-            &asr_text,
-            dictionary_max_candidates,
-        );
-
-        log::info!("[{session_id}] LLM request — asr_text: \"{}\"", asr_text);
-        log::info!("[{session_id}] LLM request — {} dictionary entries, {} interim revisions",
-            candidates.len(), interim_history.len());
-
-        let user_prompt = prompt::render_user_prompt(&user_prompt_template, &asr_text, &candidates, &interim_history);
-        log::debug!("[{session_id}] LLM user prompt:\n{}", user_prompt);
-
-        let request = CorrectionRequest {
-            asr_text: asr_text.clone(),
-            dictionary_entries: candidates,
-            system_prompt,
-            user_prompt,
-        };
-
-        match llm.correct(&request).await {
-            Ok(corrected) => {
-                log::info!("[{session_id}] LLM corrected: {} chars", corrected.len());
-                corrected
-            }
-            Err(e) => {
-                log::warn!("[{session_id}] LLM failed, falling back to ASR text: {e}");
-                invoke_session_warning(&format!("LLM correction failed: {e}"));
-                asr_text
-            }
-        }
-    } else {
-        if skip_llm {
-            log::info!("[{session_id}] Gemini provider: LLM correction already applied in-stream");
-        } else if !llm_config.enabled {
-            log::info!("[{session_id}] LLM disabled, using raw ASR text");
-        } else {
-            log::info!("[{session_id}] LLM not configured, using raw ASR text");
-        }
-        asr_text
-    };
-
-    // Store corrected text
-    {
-        let mut s = session_arc.lock().unwrap();
-        if let Some(ref mut session) = *s {
-            session.corrected_text = Some(final_text.clone());
+            session.final_text = Some(final_text.clone());
             let _ = session.transition(SessionState::PreparingPaste);
         }
     }
@@ -659,8 +463,6 @@ async fn run_session<A: AsrProvider>(
         let mut s = session_arc.lock().unwrap();
         if let Some(ref mut session) = *s {
             let _ = session.transition(SessionState::Pasting);
-            // Pasting and clipboard restore happen on the Obj-C side
-            // We transition directly to Completed here
             let _ = session.transition(SessionState::Completed);
         }
     }
@@ -671,8 +473,8 @@ async fn run_session<A: AsrProvider>(
     invoke_state_changed("idle");
 }
 
-async fn wait_for_final<A: AsrProvider>(
-    asr: &mut A,
+async fn wait_for_final(
+    asr: &mut GeminiLiveProvider,
     aggregator: &mut TranscriptAggregator,
 ) {
     loop {

@@ -6,13 +6,8 @@ static NSString *const kConfigFile = @"config.yaml";
 static NSString *const kDictionaryFile = @"dictionary.txt";
 static NSString *const kSystemPromptFile = @"system_prompt.txt";
 
-// ASR provider identifiers
-static NSString *const kProviderDoubao = @"doubao";
-static NSString *const kProviderGemini = @"gemini";
-
 // Toolbar item identifiers
 static NSToolbarItemIdentifier const kToolbarASR = @"asr";
-static NSToolbarItemIdentifier const kToolbarLLM = @"llm";
 static NSToolbarItemIdentifier const kToolbarHotkey = @"hotkey";
 static NSToolbarItemIdentifier const kToolbarDictionary = @"dictionary";
 static NSToolbarItemIdentifier const kToolbarSystemPrompt = @"system_prompt";
@@ -41,7 +36,7 @@ static NSInteger yamlIndentLevel(NSString *line) {
     return indent;
 }
 
-/// Read a YAML value at an arbitrary depth key path, e.g. @"asr.doubao.app_key".
+/// Read a YAML value at an arbitrary depth key path, e.g. @"asr.api_key".
 /// Returns @"" if not found.
 static NSString *yamlRead(NSString *yaml, NSString *keyPath) {
     NSArray<NSString *> *parts = [keyPath componentsSeparatedByString:@"."];
@@ -142,7 +137,6 @@ static NSString *yamlWrite(NSString *yaml, NSString *keyPath, NSString *value) {
     // Track section matching
     NSInteger matchedDepth = 0;
     NSInteger requiredIndent[16] = {0};
-    NSInteger lastMatchedSectionLine[16] = {0}; // line index where each section was found
 
     for (NSInteger i = 0; i < (NSInteger)lines.count; i++) {
         NSString *line = lines[i];
@@ -167,7 +161,6 @@ static NSString *yamlWrite(NSString *yaml, NSString *keyPath, NSString *value) {
             NSString *expectedSection = parts[matchedDepth];
             if ([lineKey isEqualToString:expectedSection]) {
                 requiredIndent[matchedDepth] = lineIndent;
-                lastMatchedSectionLine[matchedDepth] = i;
                 matchedDepth++;
             }
         } else if (matchedDepth == sectionCount) {
@@ -178,12 +171,10 @@ static NSString *yamlWrite(NSString *yaml, NSString *keyPath, NSString *value) {
                 lines[i] = newLine;
                 return [lines componentsJoinedByString:@"\n"];
             }
-            // Check if we've passed the section (indent dropped to parent level or above)
         }
     }
 
     // Key not found — insert it under the deepest existing parent section.
-    // Track the deepest section level we can match and insert at its end.
     NSInteger bestDepth = 0;
     NSInteger bestInsertIdx = (NSInteger)lines.count;
 
@@ -281,34 +272,11 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
 @property (nonatomic, copy) NSString *currentPaneIdentifier;
 @property (nonatomic, strong) NSView *currentPaneView;
 
-// ASR fields
-@property (nonatomic, strong) NSPopUpButton *asrProviderPopup;
-// Doubao fields
-@property (nonatomic, strong) NSView *doubaoFieldsContainer;
-@property (nonatomic, strong) NSTextField *asrAppKeyField;
-@property (nonatomic, strong) NSTextField *asrAccessKeyField;
-@property (nonatomic, strong) NSSecureTextField *asrAccessKeySecureField;
-@property (nonatomic, strong) NSButton *asrAccessKeyToggle;
-// Gemini fields
-@property (nonatomic, strong) NSView *geminiFieldsContainer;
+// ASR (Gemini) fields
 @property (nonatomic, strong) NSTextField *geminiApiKeyField;
 @property (nonatomic, strong) NSSecureTextField *geminiApiKeySecureField;
 @property (nonatomic, strong) NSButton *geminiApiKeyToggle;
 @property (nonatomic, strong) NSTextField *geminiModelField;
-
-// LLM fields
-@property (nonatomic, strong) NSButton *llmEnabledCheckbox;
-@property (nonatomic, strong) NSTextField *llmBaseUrlField;
-@property (nonatomic, strong) NSTextField *llmApiKeyField;
-@property (nonatomic, strong) NSSecureTextField *llmApiKeySecureField;
-@property (nonatomic, strong) NSButton *llmApiKeyToggle;
-@property (nonatomic, strong) NSTextField *llmModelField;
-@property (nonatomic, strong) NSButton *llmTestButton;
-@property (nonatomic, strong) NSTextField *llmTestResultLabel;
-
-@property (nonatomic, strong) NSTextField *llmGeminiHintLabel;
-// LLM max token parameter
-@property (nonatomic, strong) NSPopUpButton *maxTokenParamPopup;
 
 // Hotkey
 @property (nonatomic, strong) NSPopUpButton *hotkeyPopup;
@@ -361,15 +329,15 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarAllowedItemIdentifiers:(NSToolbar *)toolbar {
-    return @[kToolbarASR, kToolbarLLM, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
+    return @[kToolbarASR, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarDefaultItemIdentifiers:(NSToolbar *)toolbar {
-    return @[kToolbarASR, kToolbarLLM, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
+    return @[kToolbarASR, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
 }
 
 - (NSArray<NSToolbarItemIdentifier> *)toolbarSelectableItemIdentifiers:(NSToolbar *)toolbar {
-    return @[kToolbarASR, kToolbarLLM, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
+    return @[kToolbarASR, kToolbarHotkey, kToolbarDictionary, kToolbarSystemPrompt];
 }
 
 - (NSToolbarItem *)toolbar:(NSToolbar *)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)itemIdentifier willBeInsertedIntoToolbar:(BOOL)flag {
@@ -378,11 +346,8 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     item.action = @selector(toolbarItemClicked:);
 
     if ([itemIdentifier isEqualToString:kToolbarASR]) {
-        item.label = @"ASR";
-        item.image = [NSImage imageWithSystemSymbolName:@"mic.fill" accessibilityDescription:@"ASR"];
-    } else if ([itemIdentifier isEqualToString:kToolbarLLM]) {
-        item.label = @"LLM";
-        item.image = [NSImage imageWithSystemSymbolName:@"cpu" accessibilityDescription:@"LLM"];
+        item.label = @"Gemini";
+        item.image = [NSImage imageWithSystemSymbolName:@"mic.fill" accessibilityDescription:@"Gemini"];
     } else if ([itemIdentifier isEqualToString:kToolbarHotkey]) {
         item.label = @"Controls";
         item.image = [NSImage imageWithSystemSymbolName:@"slider.horizontal.3" accessibilityDescription:@"Controls"];
@@ -414,8 +379,6 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     NSView *paneView;
     if ([identifier isEqualToString:kToolbarASR]) {
         paneView = [self buildAsrPane];
-    } else if ([identifier isEqualToString:kToolbarLLM]) {
-        paneView = [self buildLlmPane];
     } else if ([identifier isEqualToString:kToolbarHotkey]) {
         paneView = [self buildHotkeyPane];
     } else if ([identifier isEqualToString:kToolbarDictionary]) {
@@ -466,193 +429,44 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     CGFloat eyeW = 28;
     CGFloat secFieldW = fieldW - eyeW - 4;
 
-    CGFloat contentHeight = 300;
+    CGFloat contentHeight = 220;
     NSView *pane = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, paneWidth, contentHeight)];
 
     CGFloat y = contentHeight - 48;
 
     // Description
-    NSTextField *desc = [self descriptionLabel:@"Choose the ASR provider. Doubao provides ASR only (pair with LLM for correction). Gemini Live combines ASR + LLM in one step."];
+    NSTextField *desc = [self descriptionLabel:@"Configure Gemini Live API for voice input. Gemini handles both speech recognition and text correction in one step."];
     desc.frame = NSMakeRect(24, y - 10, paneWidth - 48, 36);
     [pane addSubview:desc];
     y -= 52;
 
-    // Provider
-    [pane addSubview:[self formLabel:@"Provider" frame:NSMakeRect(16, y, labelW, 22)]];
-    self.asrProviderPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(fieldX, y - 2, 220, 26) pullsDown:NO];
-    [self.asrProviderPopup addItemWithTitle:@"Doubao (\u8c46\u5305)"];
-    [self.asrProviderPopup itemAtIndex:0].representedObject = kProviderDoubao;
-    [self.asrProviderPopup addItemWithTitle:@"Gemini Live"];
-    [self.asrProviderPopup itemAtIndex:1].representedObject = kProviderGemini;
-    self.asrProviderPopup.target = self;
-    self.asrProviderPopup.action = @selector(asrProviderChanged:);
-    [pane addSubview:self.asrProviderPopup];
-    y -= rowH;
-
-    // Doubao fields container
-    CGFloat fieldsY = y;
-    self.doubaoFieldsContainer = [[NSView alloc] initWithFrame:NSMakeRect(0, fieldsY - rowH * 2, paneWidth, rowH * 2)];
-
-    CGFloat dy = rowH * 2 - 22; // top of container, align with first row
-    [self.doubaoFieldsContainer addSubview:[self formLabel:@"App Key" frame:NSMakeRect(16, dy, labelW, 22)]];
-    self.asrAppKeyField = [self formTextField:NSMakeRect(fieldX, dy, fieldW, 22) placeholder:@"Volcengine App ID"];
-    [self.doubaoFieldsContainer addSubview:self.asrAppKeyField];
-    dy -= rowH;
-
-    [self.doubaoFieldsContainer addSubview:[self formLabel:@"Access Key" frame:NSMakeRect(16, dy, labelW, 22)]];
-    self.asrAccessKeySecureField = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(fieldX, dy, secFieldW, 22)];
-    self.asrAccessKeySecureField.placeholderString = @"Volcengine Access Token";
-    self.asrAccessKeySecureField.font = [NSFont systemFontOfSize:13];
-    [self.doubaoFieldsContainer addSubview:self.asrAccessKeySecureField];
-    self.asrAccessKeyField = [self formTextField:NSMakeRect(fieldX, dy, secFieldW, 22) placeholder:@"Volcengine Access Token"];
-    self.asrAccessKeyField.hidden = YES;
-    [self.doubaoFieldsContainer addSubview:self.asrAccessKeyField];
-    self.asrAccessKeyToggle = [self eyeButtonWithFrame:NSMakeRect(fieldX + secFieldW + 4, dy - 1, eyeW, 24)
-                                                action:@selector(toggleAsrAccessKeyVisibility:)];
-    [self.doubaoFieldsContainer addSubview:self.asrAccessKeyToggle];
-
-    [pane addSubview:self.doubaoFieldsContainer];
-
-    // Gemini fields container (same position, toggled by provider)
-    self.geminiFieldsContainer = [[NSView alloc] initWithFrame:NSMakeRect(0, fieldsY - rowH * 2, paneWidth, rowH * 2)];
-    self.geminiFieldsContainer.hidden = YES;
-
-    CGFloat gy = rowH * 2 - 22;
-    [self.geminiFieldsContainer addSubview:[self formLabel:@"API Key" frame:NSMakeRect(16, gy, labelW, 22)]];
-    self.geminiApiKeySecureField = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(fieldX, gy, secFieldW, 22)];
+    // API Key
+    [pane addSubview:[self formLabel:@"API Key" frame:NSMakeRect(16, y, labelW, 22)]];
+    self.geminiApiKeySecureField = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(fieldX, y, secFieldW, 22)];
     self.geminiApiKeySecureField.placeholderString = @"Google AI API Key";
     self.geminiApiKeySecureField.font = [NSFont systemFontOfSize:13];
-    [self.geminiFieldsContainer addSubview:self.geminiApiKeySecureField];
-    self.geminiApiKeyField = [self formTextField:NSMakeRect(fieldX, gy, secFieldW, 22) placeholder:@"Google AI API Key"];
+    [pane addSubview:self.geminiApiKeySecureField];
+    self.geminiApiKeyField = [self formTextField:NSMakeRect(fieldX, y, secFieldW, 22) placeholder:@"Google AI API Key"];
     self.geminiApiKeyField.hidden = YES;
-    [self.geminiFieldsContainer addSubview:self.geminiApiKeyField];
-    self.geminiApiKeyToggle = [self eyeButtonWithFrame:NSMakeRect(fieldX + secFieldW + 4, gy - 1, eyeW, 24)
+    [pane addSubview:self.geminiApiKeyField];
+    self.geminiApiKeyToggle = [self eyeButtonWithFrame:NSMakeRect(fieldX + secFieldW + 4, y - 1, eyeW, 24)
                                                 action:@selector(toggleGeminiApiKeyVisibility:)];
-    [self.geminiFieldsContainer addSubview:self.geminiApiKeyToggle];
-    gy -= rowH;
-
-    [self.geminiFieldsContainer addSubview:[self formLabel:@"Model" frame:NSMakeRect(16, gy, labelW, 22)]];
-    self.geminiModelField = [self formTextField:NSMakeRect(fieldX, gy, fieldW, 22) placeholder:@"gemini-3.1-flash-live-preview"];
-    [self.geminiFieldsContainer addSubview:self.geminiModelField];
-
-    [pane addSubview:self.geminiFieldsContainer];
-
-    // Save / Cancel buttons
-    [self addButtonsToPane:pane atY:16 width:paneWidth];
-
-    return pane;
-}
-
-- (void)asrProviderChanged:(id)sender {
-    NSString *provider = self.asrProviderPopup.selectedItem.representedObject ?: kProviderDoubao;
-    BOOL isGemini = [provider isEqualToString:kProviderGemini];
-    self.doubaoFieldsContainer.hidden = isGemini;
-    self.geminiFieldsContainer.hidden = !isGemini;
-}
-
-- (void)toggleGeminiApiKeyVisibility:(NSButton *)sender {
-    [self toggleSecureField:self.geminiApiKeySecureField plainField:self.geminiApiKeyField toggle:sender];
-}
-
-- (NSView *)buildLlmPane {
-    CGFloat paneWidth = 600;
-    CGFloat labelW = 130;
-    CGFloat fieldX = labelW + 24;
-    CGFloat fieldW = paneWidth - fieldX - 32;
-    CGFloat rowH = 32;
-
-    CGFloat contentHeight = 584;
-    NSView *pane = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, paneWidth, contentHeight)];
-
-    CGFloat y = contentHeight - 48;
-
-    // Description
-    NSTextField *desc = [self descriptionLabel:@"Configure an OpenAI-compatible LLM for post-correction. Only used when ASR provider is Doubao."];
-    desc.frame = NSMakeRect(24, y - 10, paneWidth - 48, 36);
-    [pane addSubview:desc];
-    y -= 52;
-
-    // Gemini hint (shown when provider is Gemini)
-    self.llmGeminiHintLabel = [NSTextField wrappingLabelWithString:@"Gemini Live is selected as ASR provider. Speech recognition and text correction are handled together by Gemini \u2014 these LLM settings are not used."];
-    self.llmGeminiHintLabel.frame = NSMakeRect(24, y - 10, paneWidth - 48, 36);
-    self.llmGeminiHintLabel.font = [NSFont systemFontOfSize:12 weight:NSFontWeightMedium];
-    self.llmGeminiHintLabel.textColor = [NSColor systemOrangeColor];
-    self.llmGeminiHintLabel.hidden = YES;
-    [pane addSubview:self.llmGeminiHintLabel];
-    y -= 44;
-
-    // Enabled toggle
-    self.llmEnabledCheckbox = [NSButton checkboxWithTitle:@"Enable LLM Correction"
-                                                   target:self
-                                                   action:@selector(llmEnabledToggled:)];
-    self.llmEnabledCheckbox.frame = NSMakeRect(fieldX, y, 300, 22);
-    [pane addSubview:self.llmEnabledCheckbox];
-    y -= rowH + 8;
-
-    // Base URL
-    [pane addSubview:[self formLabel:@"Base URL" frame:NSMakeRect(16, y, labelW, 22)]];
-    self.llmBaseUrlField = [self formTextField:NSMakeRect(fieldX, y, fieldW, 22) placeholder:@"https://api.openai.com/v1"];
-    [pane addSubview:self.llmBaseUrlField];
-    y -= rowH;
-
-    // API Key (secure by default)
-    CGFloat eyeW = 28;
-    CGFloat secFieldW = fieldW - eyeW - 4;
-    [pane addSubview:[self formLabel:@"API Key" frame:NSMakeRect(16, y, labelW, 22)]];
-    self.llmApiKeySecureField = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(fieldX, y, secFieldW, 22)];
-    self.llmApiKeySecureField.placeholderString = @"sk-...";
-    self.llmApiKeySecureField.font = [NSFont systemFontOfSize:13];
-    [pane addSubview:self.llmApiKeySecureField];
-    self.llmApiKeyField = [self formTextField:NSMakeRect(fieldX, y, secFieldW, 22) placeholder:@"sk-..."];
-    self.llmApiKeyField.hidden = YES;
-    [pane addSubview:self.llmApiKeyField];
-    self.llmApiKeyToggle = [self eyeButtonWithFrame:NSMakeRect(fieldX + secFieldW + 4, y - 1, eyeW, 24)
-                                             action:@selector(toggleLlmApiKeyVisibility:)];
-    [pane addSubview:self.llmApiKeyToggle];
+    [pane addSubview:self.geminiApiKeyToggle];
     y -= rowH;
 
     // Model
     [pane addSubview:[self formLabel:@"Model" frame:NSMakeRect(16, y, labelW, 22)]];
-    self.llmModelField = [self formTextField:NSMakeRect(fieldX, y, fieldW, 22) placeholder:@"gpt-5.4-nano"];
-    [pane addSubview:self.llmModelField];
-    y -= rowH + 4;
-
-    // Max Token Parameter
-    [pane addSubview:[self formLabel:@"Token Parameter" frame:NSMakeRect(16, y, labelW, 22)]];
-    self.maxTokenParamPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(fieldX, y - 2, 240, 26) pullsDown:NO];
-    [self.maxTokenParamPopup addItemsWithTitles:@[
-        @"max_completion_tokens",
-        @"max_tokens",
-    ]];
-    [self.maxTokenParamPopup itemAtIndex:0].representedObject = @"max_completion_tokens";
-    [self.maxTokenParamPopup itemAtIndex:1].representedObject = @"max_tokens";
-    [pane addSubview:self.maxTokenParamPopup];
-    y -= 42;
-
-    // Hint text
-    NSTextField *tokenHint = [self descriptionLabel:@"GPT-4o and older models use max_tokens. GPT-5 and reasoning models (o1/o3) use max_completion_tokens."];
-    tokenHint.frame = NSMakeRect(fieldX, y - 2, fieldW, 32);
-    [pane addSubview:tokenHint];
-    y -= 44;
-
-    // Test button
-    self.llmTestButton = [NSButton buttonWithTitle:@"Test Connection" target:self action:@selector(testLlmConnection:)];
-    self.llmTestButton.bezelStyle = NSBezelStyleRounded;
-    self.llmTestButton.frame = NSMakeRect(fieldX, y, 130, 28);
-    [pane addSubview:self.llmTestButton];
-    y -= 32;
-
-    // Test result
-    self.llmTestResultLabel = [NSTextField wrappingLabelWithString:@""];
-    self.llmTestResultLabel.frame = NSMakeRect(fieldX, y - 36, fieldW, 42);
-    self.llmTestResultLabel.font = [NSFont systemFontOfSize:12];
-    self.llmTestResultLabel.selectable = YES;
-    [pane addSubview:self.llmTestResultLabel];
+    self.geminiModelField = [self formTextField:NSMakeRect(fieldX, y, fieldW, 22) placeholder:@"gemini-3.1-flash-live-preview"];
+    [pane addSubview:self.geminiModelField];
 
     // Save / Cancel buttons
     [self addButtonsToPane:pane atY:16 width:paneWidth];
 
     return pane;
+}
+
+- (void)toggleGeminiApiKeyVisibility:(NSButton *)sender {
+    [self toggleSecureField:self.geminiApiKeySecureField plainField:self.geminiApiKeyField toggle:sender];
 }
 
 - (NSView *)buildHotkeyPane {
@@ -739,7 +553,7 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     CGFloat y = contentHeight - 48;
 
     // Description
-    NSTextField *desc = [self descriptionLabel:@"User dictionary \u2014 one term per line. These terms are prioritized during LLM correction. Lines starting with # are comments."];
+    NSTextField *desc = [self descriptionLabel:@"User dictionary \u2014 one term per line. These terms can be referenced in the system prompt. Lines starting with # are comments."];
     desc.frame = NSMakeRect(24, y - 10, paneWidth - 48, 36);
     [pane addSubview:desc];
     y -= 44;
@@ -779,7 +593,7 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     CGFloat y = contentHeight - 48;
 
     // Description
-    NSTextField *desc = [self descriptionLabel:@"System prompt for text correction. Used as LLM system message (Doubao mode) or Gemini system instruction (Gemini mode)."];
+    NSTextField *desc = [self descriptionLabel:@"System prompt sent to Gemini as systemInstruction. Controls how speech is transcribed and corrected."];
     desc.frame = NSMakeRect(24, y - 10, paneWidth - 48, 36);
     [pane addSubview:desc];
     y -= 44;
@@ -896,14 +710,6 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     toggle.tag = 0;
 }
 
-- (void)toggleAsrAccessKeyVisibility:(NSButton *)sender {
-    [self toggleSecureField:self.asrAccessKeySecureField plainField:self.asrAccessKeyField toggle:sender];
-}
-
-- (void)toggleLlmApiKeyVisibility:(NSButton *)sender {
-    [self toggleSecureField:self.llmApiKeySecureField plainField:self.llmApiKeyField toggle:sender];
-}
-
 // ─── Load / Save ────────────────────────────────────────────────────
 
 - (void)loadCurrentValues {
@@ -916,49 +722,10 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     NSString *yaml = [NSString stringWithContentsOfFile:configPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
 
     if ([identifier isEqualToString:kToolbarASR]) {
-        NSString *provider = yamlRead(yaml, @"asr.provider");
-        if (provider.length == 0) provider = kProviderDoubao;
-        for (NSInteger i = 0; i < self.asrProviderPopup.numberOfItems; i++) {
-            if ([[self.asrProviderPopup itemAtIndex:i].representedObject isEqualToString:provider]) {
-                [self.asrProviderPopup selectItemAtIndex:i];
-                break;
-            }
-        }
-        self.asrAppKeyField.stringValue = yamlRead(yaml, @"asr.doubao.app_key");
-        [self resetSecureField:self.asrAccessKeySecureField plainField:self.asrAccessKeyField
-                        toggle:self.asrAccessKeyToggle value:yamlRead(yaml, @"asr.doubao.access_key")];
         [self resetSecureField:self.geminiApiKeySecureField plainField:self.geminiApiKeyField
-                        toggle:self.geminiApiKeyToggle value:yamlRead(yaml, @"asr.gemini.api_key")];
-        NSString *geminiModel = yamlRead(yaml, @"asr.gemini.model");
+                        toggle:self.geminiApiKeyToggle value:yamlRead(yaml, @"asr.api_key")];
+        NSString *geminiModel = yamlRead(yaml, @"asr.model");
         self.geminiModelField.stringValue = geminiModel.length > 0 ? geminiModel : @"gemini-3.1-flash-live-preview";
-        // Toggle field visibility
-        BOOL isGemini = [provider isEqualToString:kProviderGemini];
-        self.doubaoFieldsContainer.hidden = isGemini;
-        self.geminiFieldsContainer.hidden = !isGemini;
-    } else if ([identifier isEqualToString:kToolbarLLM]) {
-        // Show hint when Gemini provider is active
-        NSString *provider = yamlRead(yaml, @"asr.provider");
-        BOOL isGemini = [provider isEqualToString:kProviderGemini];
-        self.llmGeminiHintLabel.hidden = !isGemini;
-
-        NSString *enabled = yamlRead(yaml, @"llm.enabled");
-        self.llmEnabledCheckbox.state = ([enabled isEqualToString:@"false"]) ? NSControlStateValueOff : NSControlStateValueOn;
-        NSString *baseUrl = yamlRead(yaml, @"llm.base_url");
-        self.llmBaseUrlField.stringValue = baseUrl.length > 0 ? baseUrl : @"https://api.openai.com/v1";
-        [self resetSecureField:self.llmApiKeySecureField plainField:self.llmApiKeyField
-                        toggle:self.llmApiKeyToggle value:yamlRead(yaml, @"llm.api_key")];
-        NSString *model = yamlRead(yaml, @"llm.model");
-        self.llmModelField.stringValue = model.length > 0 ? model : @"gpt-5.4-nano";
-        NSString *maxTokenParam = yamlRead(yaml, @"llm.max_token_parameter");
-        if (maxTokenParam.length == 0) maxTokenParam = @"max_completion_tokens";
-        for (NSInteger i = 0; i < self.maxTokenParamPopup.numberOfItems; i++) {
-            if ([[self.maxTokenParamPopup itemAtIndex:i].representedObject isEqualToString:maxTokenParam]) {
-                [self.maxTokenParamPopup selectItemAtIndex:i];
-                break;
-            }
-        }
-        self.llmTestResultLabel.stringValue = @"";
-        [self updateLlmFieldsEnabled];
     } else if ([identifier isEqualToString:kToolbarHotkey]) {
         NSString *triggerKey = normalizedHotkeyValue(yamlRead(yaml, @"hotkey.trigger_key"));
         NSString *cancelKey = normalizedHotkeyValue(yamlRead(yaml, @"hotkey.cancel_key"));
@@ -1004,34 +771,11 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
     NSString *configPath = configFilePath();
     NSString *yaml = [NSString stringWithContentsOfFile:configPath encoding:NSUTF8StringEncoding error:nil] ?: @"";
 
-    // Update ASR fields (always save — fields may be nil if pane not visited, check first)
-    if (self.asrProviderPopup) {
-        NSString *selectedProvider = self.asrProviderPopup.selectedItem.representedObject ?: kProviderDoubao;
-        yaml = yamlWrite(yaml, @"asr.provider", selectedProvider);
-        // Doubao fields
-        if (self.asrAppKeyField) {
-            yaml = yamlWrite(yaml, @"asr.doubao.app_key", self.asrAppKeyField.stringValue);
-            NSString *accessKey = self.asrAccessKeyToggle.tag == 1 ? self.asrAccessKeyField.stringValue : self.asrAccessKeySecureField.stringValue;
-            yaml = yamlWrite(yaml, @"asr.doubao.access_key", accessKey);
-        }
-        // Gemini fields
-        if (self.geminiApiKeyField) {
-            NSString *geminiApiKey = self.geminiApiKeyToggle.tag == 1 ? self.geminiApiKeyField.stringValue : self.geminiApiKeySecureField.stringValue;
-            yaml = yamlWrite(yaml, @"asr.gemini.api_key", geminiApiKey);
-            yaml = yamlWrite(yaml, @"asr.gemini.model", self.geminiModelField.stringValue);
-        }
-    }
-
-    // Update LLM fields
-    if (self.llmEnabledCheckbox) {
-        NSString *enabledStr = (self.llmEnabledCheckbox.state == NSControlStateValueOn) ? @"true" : @"false";
-        yaml = yamlWrite(yaml, @"llm.enabled", enabledStr);
-        yaml = yamlWrite(yaml, @"llm.base_url", self.llmBaseUrlField.stringValue);
-        NSString *llmApiKey = self.llmApiKeyToggle.tag == 1 ? self.llmApiKeyField.stringValue : self.llmApiKeySecureField.stringValue;
-        yaml = yamlWrite(yaml, @"llm.api_key", llmApiKey);
-        yaml = yamlWrite(yaml, @"llm.model", self.llmModelField.stringValue);
-        NSString *selectedTokenParam = self.maxTokenParamPopup.selectedItem.representedObject ?: @"max_completion_tokens";
-        yaml = yamlWrite(yaml, @"llm.max_token_parameter", selectedTokenParam);
+    // Update ASR (Gemini) fields
+    if (self.geminiApiKeyField) {
+        NSString *geminiApiKey = self.geminiApiKeyToggle.tag == 1 ? self.geminiApiKeyField.stringValue : self.geminiApiKeySecureField.stringValue;
+        yaml = yamlWrite(yaml, @"asr.api_key", geminiApiKey);
+        yaml = yamlWrite(yaml, @"asr.model", self.geminiModelField.stringValue);
     }
 
     // Update hotkey
@@ -1094,96 +838,6 @@ static NSString *defaultCancelKeyForTrigger(NSString *triggerKey) {
 
 - (void)cancelSetup:(id)sender {
     [self.window close];
-}
-
-- (void)llmEnabledToggled:(id)sender {
-    [self updateLlmFieldsEnabled];
-}
-
-- (void)updateLlmFieldsEnabled {
-    BOOL enabled = (self.llmEnabledCheckbox.state == NSControlStateValueOn);
-    self.llmBaseUrlField.enabled = enabled;
-    self.llmApiKeyField.enabled = enabled;
-    self.llmModelField.enabled = enabled;
-    self.maxTokenParamPopup.enabled = enabled;
-    self.llmTestButton.enabled = enabled;
-}
-
-- (void)testLlmConnection:(id)sender {
-    NSString *baseUrl = self.llmBaseUrlField.stringValue;
-    NSString *apiKey = self.llmApiKeyToggle.tag == 1 ? self.llmApiKeyField.stringValue : self.llmApiKeySecureField.stringValue;
-    NSString *model = self.llmModelField.stringValue;
-
-    if (baseUrl.length == 0 || apiKey.length == 0 || model.length == 0) {
-        self.llmTestResultLabel.stringValue = @"Please fill in all fields first.";
-        self.llmTestResultLabel.textColor = [NSColor systemOrangeColor];
-        return;
-    }
-
-    self.llmTestButton.enabled = NO;
-    self.llmTestResultLabel.stringValue = @"Testing...";
-    self.llmTestResultLabel.textColor = [NSColor secondaryLabelColor];
-
-    NSString *endpoint = [baseUrl stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"/"]];
-    endpoint = [endpoint stringByAppendingString:@"/chat/completions"];
-    NSURL *url = [NSURL URLWithString:endpoint];
-    if (!url) {
-        self.llmTestResultLabel.stringValue = @"Invalid Base URL.";
-        self.llmTestResultLabel.textColor = [NSColor systemRedColor];
-        self.llmTestButton.enabled = YES;
-        return;
-    }
-
-    NSString *tokenParam = self.maxTokenParamPopup.selectedItem.representedObject ?: @"max_completion_tokens";
-    NSDictionary *body = @{
-        @"model": model,
-        @"messages": @[@{@"role": @"user", @"content": @"Hi"}],
-        tokenParam: @(10),
-    };
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
-
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    request.HTTPMethod = @"POST";
-    request.HTTPBody = jsonData;
-    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [request setValue:[NSString stringWithFormat:@"Bearer %@", apiKey] forHTTPHeaderField:@"Authorization"];
-    request.timeoutInterval = 15;
-
-    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
-        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.llmTestButton.enabled = (self.llmEnabledCheckbox.state == NSControlStateValueOn);
-
-            if (error) {
-                self.llmTestResultLabel.stringValue = error.localizedDescription;
-                self.llmTestResultLabel.textColor = [NSColor systemRedColor];
-                return;
-            }
-
-            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-            if (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300) {
-                self.llmTestResultLabel.stringValue = @"Connection successful!";
-                self.llmTestResultLabel.textColor = [NSColor systemGreenColor];
-            } else {
-                NSString *errMsg = nil;
-                if (data) {
-                    NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-                    if ([json isKindOfClass:[NSDictionary class]]) {
-                        NSDictionary *errObj = json[@"error"];
-                        if ([errObj isKindOfClass:[NSDictionary class]]) {
-                            errMsg = errObj[@"message"];
-                        }
-                    }
-                }
-                NSString *bodyStr = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"";
-                self.llmTestResultLabel.stringValue = [NSString stringWithFormat:@"HTTP %ld: %@",
-                    (long)httpResponse.statusCode,
-                    errMsg ?: bodyStr ?: @"Unknown error"];
-                self.llmTestResultLabel.textColor = [NSColor systemRedColor];
-            }
-        });
-    }];
-    [task resume];
 }
 
 - (void)showAlert:(NSString *)message info:(NSString *)info {

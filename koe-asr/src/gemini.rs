@@ -118,11 +118,11 @@ impl AsrProvider for GeminiLiveProvider {
     async fn connect(&mut self, config: &AsrConfig) -> Result<()> {
         let connect_timeout = Duration::from_millis(config.connect_timeout_ms);
 
-        let url = format!("{}?key={}", GEMINI_WS_BASE, config.gemini_api_key);
-        let model = if config.gemini_model.starts_with("models/") {
-            config.gemini_model.clone()
+        let url = format!("{}?key={}", GEMINI_WS_BASE, config.api_key);
+        let model = if config.model.starts_with("models/") {
+            config.model.clone()
         } else {
-            format!("models/{}", config.gemini_model)
+            format!("models/{}", config.model)
         };
 
         log::info!("connecting to Gemini Live API: model={}", model);

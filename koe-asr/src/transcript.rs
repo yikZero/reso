@@ -1,12 +1,10 @@
 /// Aggregates ASR interim, definite, and final results into a single final transcript.
-/// Also collects interim revision history to help identify uncertain segments.
 pub struct TranscriptAggregator {
     interim_text: String,
     definite_text: String,
     final_text: String,
     has_final: bool,
     has_definite: bool,
-    interim_history: Vec<String>,
 }
 
 impl TranscriptAggregator {
@@ -17,21 +15,17 @@ impl TranscriptAggregator {
             final_text: String::new(),
             has_final: false,
             has_definite: false,
-            interim_history: Vec::new(),
         }
     }
 
-    /// Update with an interim result (replaces previous interim).
+    /// Update with an interim (partial) recognition result.
     pub fn update_interim(&mut self, text: &str) {
         if !text.is_empty() {
-            if self.interim_history.last().map(|s| s.as_str()) != Some(text) {
-                self.interim_history.push(text.to_string());
-            }
             self.interim_text = text.to_string();
         }
     }
 
-    /// Update with a definite result from two-pass recognition.
+    /// Update with a definite (confirmed) result.
     pub fn update_definite(&mut self, text: &str) {
         if !text.is_empty() {
             self.has_definite = true;
@@ -72,17 +66,6 @@ impl TranscriptAggregator {
         !self.final_text.is_empty()
             || !self.definite_text.is_empty()
             || !self.interim_text.is_empty()
-    }
-
-    /// Return the interim revision history.
-    /// Keeps only the last `max_entries` to avoid bloating prompts.
-    pub fn interim_history(&self, max_entries: usize) -> &[String] {
-        let len = self.interim_history.len();
-        if len <= max_entries {
-            &self.interim_history
-        } else {
-            &self.interim_history[len - max_entries..]
-        }
     }
 }
 
