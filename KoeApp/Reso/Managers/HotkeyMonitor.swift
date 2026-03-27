@@ -38,6 +38,9 @@ final class HotkeyMonitor: @unchecked Sendable {
     var cancelModifierFlag: UInt64 = 0x00000020
 
     var holdThresholdMs: Int = 180
+    /// Whether a session is actively running (recording, finalizing, or pasting).
+    /// Cancel key is accepted whenever this is true, even after recording ends.
+    var sessionActive = false
     var suspended = false {
         didSet {
             if !suspended {
@@ -160,14 +163,14 @@ final class HotkeyMonitor: @unchecked Sendable {
                 }
             } else if isCancelKey(keyCode) {
                 let isDown = (flags & UInt(cancelModifierFlag)) != 0
-                if isDown && isRecording {
+                if isDown && isCancellable {
                     handleCancel(source: "NSEvent")
                 }
             }
 
         case .keyDown:
             let keyCode = event.keyCode
-            if isCancelKey(keyCode) && isRecording {
+            if isCancelKey(keyCode) && isCancellable {
                 handleCancel(source: "NSEvent-keyDown")
             } else if isTargetKey(keyCode) {
                 handleTriggerDown()
@@ -196,6 +199,10 @@ final class HotkeyMonitor: @unchecked Sendable {
 
     fileprivate var isRecording: Bool {
         state == .recordingHold || state == .recordingToggle
+    }
+
+    fileprivate var isCancellable: Bool {
+        isRecording || sessionActive
     }
 
     // MARK: - State Machine
@@ -251,8 +258,9 @@ final class HotkeyMonitor: @unchecked Sendable {
     }
 
     fileprivate func handleCancel(source: String) {
-        guard isRecording else { return }
+        guard isCancellable else { return }
         print("[HotkeyMonitor] cancel from \(source)")
+        sessionActive = false
         resetToIdle()
         Task { @MainActor [weak self] in
             self?.delegate?.hotkeyMonitorDidDetectCancel()
@@ -316,7 +324,7 @@ private func hotkeyEventTapCallback(
                 }
             } else if monitor.isCancelKey(keyCode) {
                 let isDown = (flags & monitor.cancelModifierFlag) != 0
-                if isDown && monitor.isRecording {
+                if isDown && monitor.isCancellable {
                     monitor.handleCancel(source: "CGEventTap")
                 }
             }
@@ -324,7 +332,7 @@ private func hotkeyEventTapCallback(
     } else if type == .keyDown {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
         DispatchQueue.main.async {
-            if monitor.isCancelKey(keyCode) && monitor.isRecording {
+            if monitor.isCancelKey(keyCode) && monitor.isCancellable {
                 monitor.handleCancel(source: "CGEventTap-keyDown")
             } else if monitor.isTargetKey(keyCode) {
                 monitor.handleTriggerDown()

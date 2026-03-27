@@ -150,6 +150,7 @@ final class AppState {
     private func startSession(mode: SessionMode) {
         recordingStartTime = Date()
         cuePlayer.playStart()
+        hotkeyMonitor.sessionActive = true
 
         sessionState = mode == .hold ? .recordingHold : .recordingToggle
 
@@ -177,6 +178,7 @@ final class AppState {
     private func cancelSession() {
         audioCaptureManager.stopCapture()
         RustBridge.shared.cancelSession()
+        hotkeyMonitor.sessionActive = false
         recordingStartTime = nil
         sessionState = .idle
     }
@@ -282,6 +284,7 @@ extension AppState: RustBridgeDelegate {
             recordSession(durationMs: durationMs, text: text)
         }
 
+        hotkeyMonitor.sessionActive = false
         sessionState = .idle
 
         if permissionManager.checkAccessibility() {
@@ -304,6 +307,7 @@ extension AppState: RustBridgeDelegate {
         }
 
         audioCaptureManager.stopCapture()
+        hotkeyMonitor.sessionActive = false
         hotkeyMonitor.resetToIdle()
 
         let dismissDelay: TimeInterval = isNoSpeech ? 1 : 2

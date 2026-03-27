@@ -420,13 +420,23 @@ async fn run_session(
     if !aggregator.has_final_result() && !asr_done {
         let wait_result = timeout(
             Duration::from_millis(final_wait_timeout_ms),
-            wait_for_final(&mut asr, &mut aggregator),
+            wait_for_final(&mut asr, &mut aggregator, &cancelled),
         )
         .await;
 
         if wait_result.is_err() {
             log::warn!("[{session_id}] ASR final result timed out");
         }
+    }
+
+    // Check cancelled again after finalization wait
+    if cancelled.load(Ordering::SeqCst) {
+        log::info!("[{session_id}] session cancelled during finalization");
+        let _ = asr.close().await;
+        invoke_state_changed("cancelled");
+        cleanup_session(&session_arc);
+        invoke_state_changed("idle");
+        return;
     }
 
     let _ = asr.close().await;
@@ -444,6 +454,15 @@ async fn run_session(
         "[{session_id}] result: {} chars",
         final_text.len(),
     );
+
+    // Final cancel check before delivering result
+    if cancelled.load(Ordering::SeqCst) {
+        log::info!("[{session_id}] session cancelled before paste");
+        invoke_state_changed("cancelled");
+        cleanup_session(&session_arc);
+        invoke_state_changed("idle");
+        return;
+    }
 
     // Deliver result
     {
@@ -476,8 +495,12 @@ async fn run_session(
 async fn wait_for_final(
     asr: &mut GeminiLiveProvider,
     aggregator: &mut TranscriptAggregator,
+    cancelled: &Arc<AtomicBool>,
 ) {
     loop {
+        if cancelled.load(Ordering::SeqCst) {
+            return;
+        }
         match asr.next_event().await {
             Ok(AsrEvent::Final(text)) => {
                 aggregator.update_final(&text);
