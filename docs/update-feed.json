@@ -1,9 +1,9 @@
 {
-  "version": "0.1.0",
-  "build": 1,
-  "published_at": "2026-03-26T09:38:59Z",
+  "version": "0.3.3",
+  "build": 6,
+  "published_at": "2026-03-27T04:49:00Z",
   "minimum_system_version": "13.0",
-  "download_url": "https://github.com/yikZero/reso/releases/download/v0.1.0/Reso-macOS-universal.dmg",
-  "release_notes_url": "https://github.com/yikZero/reso/releases/tag/v0.1.0",
-  "notes": []
+  "download_url": "https://github.com/yikZero/reso/releases/download/v0.3.3/Reso-macOS.dmg",
+  "release_notes_url": "https://github.com/yikZero/reso/releases/tag/v0.3.3",
+  "notes": "支持在录音结束后的任意阶段（等待结果、粘贴前）通过取消键中断会话"
 }
