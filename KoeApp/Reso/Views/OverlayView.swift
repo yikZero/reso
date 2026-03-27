@@ -1,4 +1,20 @@
+import AppKit
 import SwiftUI
+
+// MARK: - Visual Effect Background
+
+private struct VisualEffectPill: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.appearance = NSAppearance(named: .vibrantDark)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
 
 // MARK: - Overlay Mode
 
@@ -42,12 +58,18 @@ struct OverlayView: View {
         .padding(.horizontal, OverlayLayout.horizontalPad)
         .frame(height: OverlayLayout.pillHeight)
         .background(
-            Capsule()
-                .fill(.black.opacity(0.70))
-                .overlay(
-                    Capsule()
-                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                )
+            ZStack {
+                VisualEffectPill()
+                // Dark tint for minimum white-text contrast
+                Capsule()
+                    .fill(.black.opacity(0.35))
+            }
+            .clipShape(Capsule())
+            .shadow(color: .white.opacity(0.15), radius: 6, x: 0, y: 0)
+            .overlay(
+                Capsule()
+                    .strokeBorder(.white.opacity(0.20), lineWidth: 0.5)
+            )
         )
         .onAppear { startAnimation() }
         .onDisappear { stopAnimation() }
