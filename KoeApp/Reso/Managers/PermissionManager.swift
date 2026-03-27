@@ -1,4 +1,5 @@
 import AVFoundation
+@preconcurrency import ApplicationServices
 import AppKit
 import UserNotifications
 
@@ -36,8 +37,8 @@ final class PermissionManager {
 
     // MARK: - Accessibility
 
-    func checkAccessibility() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+    nonisolated func checkAccessibility() -> Bool {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 

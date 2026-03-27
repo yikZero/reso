@@ -14,7 +14,13 @@ final class AppState {
     }
     var interimText: String = ""
     var initialized = false
-    private(set) var isSetupComplete = false
+    private(set) var isSetupComplete: Bool
+
+    init() {
+        let yaml = koeReadConfig()
+        let apiKey = koeYamlRead(yaml, key: "api_key")
+        isSetupComplete = !apiKey.isEmpty && apiKey != "${GEMINI_API_KEY}"
+    }
 
     func refreshSetupComplete() {
         let yaml = koeReadConfig()

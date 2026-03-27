@@ -18,7 +18,8 @@ struct SettingsView: View {
                 PromptSettingsTab(appState: appState)
             }
         }
-        .frame(width: 500, height: 380)
+        .scenePadding()
+        .frame(width: 480, height: 360)
     }
 }
 
@@ -33,12 +34,6 @@ private struct AsrSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                Text("Configure Gemini Live API for speech recognition.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("API Key") {
                 HStack {
                     if showKey {
                         TextField("API Key", text: $apiKey)
@@ -50,20 +45,24 @@ private struct AsrSettingsTab: View {
                     }
                     .buttonStyle(.borderless)
                 }
-            }
 
-            Section("Model") {
                 TextField("Model", text: $model)
+                    .textFieldStyle(.plain)
+            } header: {
+                Text("Gemini Live API")
+            } footer: {
+                Text("Configure the Gemini API key and model for speech recognition.")
             }
 
-            HStack {
-                Spacer()
-                Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
+            Section {
+                HStack {
+                    Spacer()
+                    Button("Save") { save() }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .formStyle(.grouped)
-        .padding()
         .onAppear { load() }
     }
 
@@ -91,16 +90,11 @@ private struct HotkeySettingsTab: View {
     @State private var cancelKey = "left_option"
     @State private var hideMenuIcon = false
     @State private var errorMessage: String?
+    @State private var loaded = false
 
     var body: some View {
         Form {
             Section {
-                Text("Choose trigger and cancel keys for voice input.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Keys") {
                 Picker("Trigger Key", selection: $triggerKey) {
                     ForEach(koeKeyOptions, id: \.key) { key, label in
                         Text(label).tag(key)
@@ -111,27 +105,27 @@ private struct HotkeySettingsTab: View {
                         Text(label).tag(key)
                     }
                 }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
+            } header: {
+                Text("Keys")
+            } footer: {
+                Text("Hold the trigger key for dictation, or tap to toggle. Press cancel to abort.")
             }
 
             Section("Appearance") {
-                Toggle("Hide menu bar icon (show Dock icon instead)", isOn: $hideMenuIcon)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.caption)
-            }
-
-            HStack {
-                Spacer()
-                Button("Save") { save() }
-                    .buttonStyle(.borderedProminent)
+                Toggle("Hide menu bar icon", isOn: $hideMenuIcon)
             }
         }
         .formStyle(.grouped)
-        .padding()
         .onAppear { load() }
+        .onChange(of: triggerKey) { save() }
+        .onChange(of: cancelKey) { save() }
+        .onChange(of: hideMenuIcon) { save() }
     }
 
     private func load() {
@@ -141,9 +135,11 @@ private struct HotkeySettingsTab: View {
         let c = koeYamlRead(yaml, key: "cancel_key")
         cancelKey = c.isEmpty ? "left_option" : c
         hideMenuIcon = koeYamlRead(yaml, key: "hide_menu_icon") == "true"
+        loaded = true
     }
 
     private func save() {
+        guard loaded else { return }
         guard triggerKey != cancelKey else {
             errorMessage = "Trigger and cancel keys must be different."
             return
@@ -165,23 +161,35 @@ private struct DictionarySettingsTab: View {
     @State private var text = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("User dictionary — one term per line. These terms help improve recognition accuracy.")
-                .font(.caption)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("One term per line. These help improve recognition accuracy.")
+                .font(.callout)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal)
-                .padding(.top, 12)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
 
             TextEditor(text: $text)
                 .font(.system(.body, design: .monospaced))
-                .padding(.horizontal)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.background)
+                        .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.quaternary, lineWidth: 0.5)
+                )
+                .padding(.horizontal, 12)
 
             HStack {
                 Spacer()
                 Button("Save") { save() }
                     .buttonStyle(.borderedProminent)
-                    .padding()
             }
+            .padding(12)
         }
         .onAppear { load() }
     }
@@ -202,23 +210,35 @@ private struct PromptSettingsTab: View {
     @State private var text = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("System prompt sent to Gemini for speech recognition and correction.")
-                .font(.caption)
+        VStack(alignment: .leading, spacing: 0) {
+            Text("System prompt sent to Gemini for recognition and correction.")
+                .font(.callout)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal)
-                .padding(.top, 12)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 6)
 
             TextEditor(text: $text)
                 .font(.system(.body, design: .monospaced))
-                .padding(.horizontal)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.background)
+                        .shadow(color: .black.opacity(0.06), radius: 1, y: 1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(.quaternary, lineWidth: 0.5)
+                )
+                .padding(.horizontal, 12)
 
             HStack {
                 Spacer()
                 Button("Save") { save() }
                     .buttonStyle(.borderedProminent)
-                    .padding()
             }
+            .padding(12)
         }
         .onAppear { load() }
     }

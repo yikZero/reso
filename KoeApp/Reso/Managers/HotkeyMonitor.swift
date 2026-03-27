@@ -27,6 +27,8 @@ protocol HotkeyMonitorDelegate: AnyObject {
 final class HotkeyMonitor: @unchecked Sendable {
     @MainActor weak var delegate: HotkeyMonitorDelegate?
 
+    nonisolated init() {}
+
     // Key configuration
     var targetKeyCode: UInt16 = 63
     var altKeyCode: UInt16 = 179
