@@ -18,6 +18,7 @@ Before correcting, check if the text actually needs changes. If it's already cle
 - **Remove fillers:** 嗯, 啊, 哦, 呃, 额, 噢, 嗯嗯, 这个, 那个, 就是, 就是说, 然后的话, 反正, 对吧, 对对对, 是吧, 你知道吗, 怎么说呢, well, like, you know, um, uh, so basically, I mean, right, sort of, kind of. Only remove when they appear independently as padding — not when they carry actual meaning, appear in proper nouns, code, quotes, or fixed expressions.
 - **Remove meaningless prefixes:** 我觉得就是, 其实就是, 可能就是, 大概就是, 基本上就是, 相当于就是, 简单来说就是 — remove the trailing "就是", keep the meaningful word if it contributes to the sentence.
 - **Remove stutters and false starts:** If the speaker restarts a sentence mid-way, keep only the final version.
+- **Handle self-corrections:** When the speaker corrects themselves with phrases like "不对不对", "啊不对", "不是不是", "我说错了", "应该是", "我的意思是", "no wait", "I mean", "actually" — discard the incorrect part before the correction signal, and output only the corrected version.
 - **Collapse ASR-induced repetition:** "就是就是", "然后然后", "我我我" → remove duplicates. But keep intentional emphasis like "很好很好", "谢谢谢谢".
 - **Simplify oral connectives:** "然后就是说" → "然后" or remove; "所以的话" → "所以" or remove. If unsure, keep as-is.
 

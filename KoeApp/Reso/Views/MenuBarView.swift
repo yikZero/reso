@@ -16,11 +16,7 @@ struct MenuBarView: View {
     @ViewBuilder
     private var mainMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(statusText)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+            todayStatsSection
 
             Divider()
 
@@ -85,6 +81,16 @@ struct MenuBarView: View {
             .padding(.vertical, 2)
         }
         .frame(width: 240)
+    }
+
+    @ViewBuilder
+    private var todayStatsSection: some View {
+        let cost = appState.todayStats.estimatedCost
+        Text("Today: \(cost < 0.01 ? "< $0.01" : String(format: "$%.2f", cost))")
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .onAppear { appState.refreshTodayStats() }
     }
 
     private var statusText: String {

@@ -64,6 +64,8 @@ final class AppState {
 
         overlayPanel = OverlayPanel()
 
+        refreshTodayStats()
+
         updateManager.start()
 
         permissionManager.requestNotificationPermission()
@@ -206,6 +208,39 @@ final class AppState {
         }
     }
 
+    // MARK: - Today Stats
+
+    struct TodayStats {
+        var sessions: Int = 0
+        var totalDurationMs: Int = 0
+        var totalChars: Int = 0
+
+        var durationMinutes: Double { Double(totalDurationMs) / 60_000.0 }
+        /// Gemini Live API: $0.005/min audio input
+        var estimatedCost: Double { durationMinutes * 0.005 }
+    }
+
+    private(set) var todayStats = TodayStats()
+
+    func refreshTodayStats() {
+        guard let modelContainer else { return }
+        let context = ModelContext(modelContainer)
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let predicate = #Predicate<SessionHistory> { $0.startedAt >= startOfDay }
+        var descriptor = FetchDescriptor<SessionHistory>(predicate: predicate)
+        descriptor.propertiesToFetch = [\.durationMs, \.characterCount]
+
+        guard let results = try? context.fetch(descriptor) else { return }
+
+        var stats = TodayStats()
+        stats.sessions = results.count
+        for r in results {
+            stats.totalDurationMs += r.durationMs
+            stats.totalChars += r.characterCount
+        }
+        todayStats = stats
+    }
+
     // MARK: - History
 
     private func recordSession(durationMs: Int, text: String) {
@@ -214,6 +249,7 @@ final class AppState {
         let entry = SessionHistory(durationMs: durationMs, text: text)
         context.insert(entry)
         try? context.save()
+        refreshTodayStats()
     }
 
     // MARK: - Copyable Alert (no accessibility fallback)
