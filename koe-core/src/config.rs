@@ -21,15 +21,26 @@ pub struct Config {
 
 // ─── ASR V2 Configuration ───────────────────────────────────────────
 
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AsrProvider {
+    #[default]
+    Doubao,
+    Gemini,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct AsrSection {
-    /// Which ASR provider to use: "doubao" (default), future: "openai", etc.
-    #[serde(default = "default_asr_provider")]
-    pub provider: String,
+    #[serde(default)]
+    pub provider: AsrProvider,
 
     /// Doubao (豆包/火山引擎) ASR configuration
     #[serde(default)]
     pub doubao: DoubaoAsrConfig,
+
+    /// Gemini Live API configuration (combined ASR + LLM)
+    #[serde(default)]
+    pub gemini: GeminiAsrConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -54,6 +65,18 @@ pub struct DoubaoAsrConfig {
     pub enable_punc: bool,
     #[serde(default = "default_true")]
     pub enable_nonstream: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct GeminiAsrConfig {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default = "default_gemini_model")]
+    pub model: String,
+    #[serde(default = "default_connect_timeout")]
+    pub connect_timeout_ms: u64,
+    #[serde(default = "default_gemini_final_wait_timeout")]
+    pub final_wait_timeout_ms: u64,
 }
 
 // ─── Other Sections (unchanged) ─────────────────────────────────────
@@ -227,9 +250,6 @@ impl HotkeySection {
 
 // ─── Defaults ───────────────────────────────────────────────────────
 
-fn default_asr_provider() -> String {
-    "doubao".into()
-}
 fn default_asr_url() -> String {
     "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async".into()
 }
@@ -241,6 +261,12 @@ fn default_connect_timeout() -> u64 {
 }
 fn default_final_wait_timeout() -> u64 {
     5000
+}
+fn default_gemini_model() -> String {
+    "gemini-3.1-flash-live-preview".into()
+}
+fn default_gemini_final_wait_timeout() -> u64 {
+    10000
 }
 fn default_true() -> bool {
     true
@@ -299,6 +325,11 @@ impl Default for AsrSection {
     }
 }
 impl Default for DoubaoAsrConfig {
+    fn default() -> Self {
+        serde_yaml::from_str("{}").unwrap()
+    }
+}
+impl Default for GeminiAsrConfig {
     fn default() -> Self {
         serde_yaml::from_str("{}").unwrap()
     }
@@ -627,8 +658,10 @@ const DEFAULT_CONFIG_YAML: &str = r#"# Koe - Voice Input Tool Configuration
 # ~/.koe/config.yaml
 
 asr:
-  # ASR provider: "doubao" (default)
-  provider: "doubao"
+  # ASR provider: "doubao" or "gemini"
+  # - doubao: Doubao ASR + separate LLM correction (two-step)
+  # - gemini: Gemini Live API, combined ASR + LLM in one step
+  provider: "gemini"
 
   # Doubao (豆包) Streaming ASR 2.0 (优化版双向流式)
   doubao:
@@ -643,8 +676,15 @@ asr:
     enable_punc: true    # 自动标点
     enable_nonstream: true  # 二遍识别 (流式+非流式, 提升准确率)
 
+  # Gemini Live API (combined ASR + LLM correction)
+  gemini:
+    api_key: ""          # Google AI API key, or use ${GEMINI_API_KEY}
+    model: "gemini-3.1-flash-live-preview"
+    connect_timeout_ms: 5000
+    final_wait_timeout_ms: 10000
+
 llm:
-  enabled: true        # set to false to skip LLM correction entirely
+  enabled: true        # set to false to skip LLM correction entirely (ignored when asr.provider is "gemini")
   # OpenAI-compatible endpoint for text correction
   base_url: "https://api.openai.com/v1"
   api_key: ""          # or use ${LLM_API_KEY}

@@ -356,7 +356,11 @@
 }
 
 - (void)rustBridgeDidChangeState:(NSString *)state {
-    if ([state hasPrefix:@"preparing_paste"] || [state isEqualToString:@"pasting"] || [state isEqualToString:@"completed"]) {
+    // Filter terminal states already handled by other callbacks:
+    // - preparing_paste/pasting/completed: handled by rustBridgeDidReceiveFinalText:
+    // - failed: handled by rustBridgeDidEncounterError: (which shows error + auto-dismiss)
+    if ([state hasPrefix:@"preparing_paste"] || [state isEqualToString:@"pasting"]
+        || [state isEqualToString:@"completed"] || [state isEqualToString:@"failed"]) {
         return;
     }
     [self.statusBarManager updateState:state];

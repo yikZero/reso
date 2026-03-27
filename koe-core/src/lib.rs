@@ -17,7 +17,7 @@ use crate::ffi::{
 use crate::llm::openai_compatible::OpenAiCompatibleProvider;
 use crate::llm::{CorrectionRequest, LlmProvider};
 use crate::session::{Session, SessionState};
-use koe_asr::{AsrConfig, AsrEvent, AsrProvider, DoubaoWsProvider, TranscriptAggregator};
+use koe_asr::{AsrConfig, AsrEvent, AsrProvider, DoubaoWsProvider, GeminiLiveProvider, TranscriptAggregator};
 
 use std::ffi::c_char;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -213,44 +213,53 @@ pub extern "C" fn sp_core_session_begin(context: SPSessionContext) -> i32 {
 
     // Capture config for the async task
     let cfg = &core.config;
-    let doubao = &cfg.asr.doubao;
-    let asr_config = AsrConfig {
-        url: doubao.url.clone(),
-        app_key: doubao.app_key.clone(),
-        access_key: doubao.access_key.clone(),
-        resource_id: doubao.resource_id.clone(),
-        sample_rate_hz: 16000,
-        connect_timeout_ms: doubao.connect_timeout_ms,
-        final_wait_timeout_ms: doubao.final_wait_timeout_ms,
-        enable_ddc: doubao.enable_ddc,
-        enable_itn: doubao.enable_itn,
-        enable_punc: doubao.enable_punc,
-        enable_nonstream: doubao.enable_nonstream,
-        hotwords: core.dictionary.clone(),
+    let provider = cfg.asr.provider;
+
+    let asr_config = match provider {
+        config::AsrProvider::Gemini => {
+            let gemini = &cfg.asr.gemini;
+            AsrConfig {
+                gemini_api_key: gemini.api_key.clone(),
+                gemini_model: gemini.model.clone(),
+                system_prompt: core.system_prompt.clone(),
+                sample_rate_hz: 16000,
+                connect_timeout_ms: gemini.connect_timeout_ms,
+                final_wait_timeout_ms: gemini.final_wait_timeout_ms,
+                ..Default::default()
+            }
+        }
+        config::AsrProvider::Doubao => {
+            let doubao = &cfg.asr.doubao;
+            AsrConfig {
+                url: doubao.url.clone(),
+                app_key: doubao.app_key.clone(),
+                access_key: doubao.access_key.clone(),
+                resource_id: doubao.resource_id.clone(),
+                sample_rate_hz: 16000,
+                connect_timeout_ms: doubao.connect_timeout_ms,
+                final_wait_timeout_ms: doubao.final_wait_timeout_ms,
+                enable_ddc: doubao.enable_ddc,
+                enable_itn: doubao.enable_itn,
+                enable_punc: doubao.enable_punc,
+                enable_nonstream: doubao.enable_nonstream,
+                hotwords: core.dictionary.clone(),
+                ..Default::default()
+            }
+        }
     };
+
     let llm_config = cfg.llm.clone();
     let dictionary = core.dictionary.clone();
     let dictionary_max_candidates = cfg.llm.dictionary_max_candidates;
     let system_prompt = core.system_prompt.clone();
     let user_prompt_template = core.user_prompt_template.clone();
 
-    // Spawn the session task
-    core.runtime.spawn(async move {
-        run_session(
-            session_arc,
-            session_id,
-            mode,
-            audio_rx,
-            asr_config,
-            llm_config,
-            dictionary,
-            dictionary_max_candidates,
-            system_prompt,
-            user_prompt_template,
-            cancelled,
-        )
-        .await;
-    });
+    // Spawn the session task with the selected provider
+    spawn_session(
+        &core.runtime, provider, session_arc, session_id, mode,
+        audio_rx, asr_config, llm_config, dictionary,
+        dictionary_max_candidates, system_prompt, user_prompt_template, cancelled,
+    );
 
     0
 }
@@ -366,7 +375,49 @@ pub extern "C" fn sp_core_get_hotkey_config() -> SPHotkeyConfig {
 
 // ─── Session Task ───────────────────────────────────────────────────
 
-async fn run_session(
+#[allow(clippy::too_many_arguments)]
+fn spawn_session(
+    runtime: &Runtime,
+    provider: config::AsrProvider,
+    session_arc: Arc<Mutex<Option<Session>>>,
+    session_id: String,
+    mode: SPSessionMode,
+    audio_rx: mpsc::Receiver<Vec<u8>>,
+    asr_config: AsrConfig,
+    llm_config: config::LlmSection,
+    dictionary: Vec<String>,
+    dictionary_max_candidates: usize,
+    system_prompt: String,
+    user_prompt_template: String,
+    cancelled: Arc<AtomicBool>,
+) {
+    match provider {
+        config::AsrProvider::Gemini => {
+            runtime.spawn(async move {
+                run_session(
+                    GeminiLiveProvider::new(), true,
+                    session_arc, session_id, mode, audio_rx, asr_config,
+                    llm_config, dictionary, dictionary_max_candidates,
+                    system_prompt, user_prompt_template, cancelled,
+                ).await;
+            });
+        }
+        config::AsrProvider::Doubao => {
+            runtime.spawn(async move {
+                run_session(
+                    DoubaoWsProvider::new(), false,
+                    session_arc, session_id, mode, audio_rx, asr_config,
+                    llm_config, dictionary, dictionary_max_candidates,
+                    system_prompt, user_prompt_template, cancelled,
+                ).await;
+            });
+        }
+    }
+}
+
+async fn run_session<A: AsrProvider>(
+    mut asr: A,
+    skip_llm: bool,
     session_arc: Arc<Mutex<Option<Session>>>,
     session_id: String,
     mode: SPSessionMode,
@@ -398,7 +449,6 @@ async fn run_session(
     invoke_session_ready();
 
     // --- Connect ASR ---
-    let mut asr = DoubaoWsProvider::new();
     if let Err(e) = asr.connect(&asr_config).await {
         log::error!("[{session_id}] ASR connection failed: {e}");
         invoke_session_error(&e.to_string());
@@ -522,7 +572,9 @@ async fn run_session(
     }
 
     // --- LLM Correction ---
-    let llm_enabled = llm_config.enabled
+    // When using Gemini provider, LLM correction is already done in-stream
+    let llm_enabled = !skip_llm
+        && llm_config.enabled
         && !llm_config.base_url.is_empty()
         && !llm_config.api_key.is_empty();
 
@@ -579,7 +631,9 @@ async fn run_session(
             }
         }
     } else {
-        if !llm_config.enabled {
+        if skip_llm {
+            log::info!("[{session_id}] Gemini provider: LLM correction already applied in-stream");
+        } else if !llm_config.enabled {
             log::info!("[{session_id}] LLM disabled, using raw ASR text");
         } else {
             log::info!("[{session_id}] LLM not configured, using raw ASR text");
@@ -617,8 +671,8 @@ async fn run_session(
     invoke_state_changed("idle");
 }
 
-async fn wait_for_final(
-    asr: &mut DoubaoWsProvider,
+async fn wait_for_final<A: AsrProvider>(
+    asr: &mut A,
     aggregator: &mut TranscriptAggregator,
 ) {
     loop {

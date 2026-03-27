@@ -25,6 +25,14 @@ pub struct AsrConfig {
     pub enable_nonstream: bool,
     /// Hotwords for improved recognition accuracy
     pub hotwords: Vec<String>,
+
+    // ─── Gemini Live API fields ─────────────────────────────────────
+    /// Gemini API key
+    pub gemini_api_key: String,
+    /// Gemini model name (e.g. "gemini-3.1-flash-live-preview")
+    pub gemini_model: String,
+    /// System prompt for Gemini (used as systemInstruction)
+    pub system_prompt: String,
 }
 
 impl Default for AsrConfig {
@@ -42,6 +50,9 @@ impl Default for AsrConfig {
             enable_punc: true,
             enable_nonstream: true,
             hotwords: Vec::new(),
+            gemini_api_key: String::new(),
+            gemini_model: "gemini-3.1-flash-live-preview".into(),
+            system_prompt: String::new(),
         }
     }
 }

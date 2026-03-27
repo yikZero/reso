@@ -42,6 +42,7 @@ pub mod config;
 pub mod doubao;
 pub mod error;
 pub mod event;
+pub mod gemini;
 pub mod provider;
 pub mod transcript;
 
@@ -49,5 +50,6 @@ pub use config::AsrConfig;
 pub use doubao::DoubaoWsProvider;
 pub use error::AsrError;
 pub use event::AsrEvent;
+pub use gemini::GeminiLiveProvider;
 pub use provider::AsrProvider;
 pub use transcript::TranscriptAggregator;
