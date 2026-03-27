@@ -20,7 +20,7 @@ final class AudioDeviceManager {
     private static let selectedUIDKey = "SPSelectedAudioDeviceUID"
     private static let selectedNameKey = "SPSelectedAudioDeviceName"
     private var listenerRegistered = false
-    private var onDeviceListChanged: (() -> Void)?
+    fileprivate var onDeviceListChanged: (() -> Void)?
 
     var selectedDeviceUID: String? {
         get { UserDefaults.standard.string(forKey: Self.selectedUIDKey) }
