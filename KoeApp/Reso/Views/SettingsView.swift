@@ -32,37 +32,38 @@ private struct AsrSettingsTab: View {
     @State private var showKey = false
 
     var body: some View {
-        Form {
-            Section {
-                HStack {
-                    if showKey {
-                        TextField("API Key", text: $apiKey)
-                    } else {
-                        SecureField("API Key", text: $apiKey)
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    HStack {
+                        if showKey {
+                            TextField("API Key", text: $apiKey)
+                        } else {
+                            SecureField("API Key", text: $apiKey)
+                        }
+                        Button(showKey ? "Hide" : "Show") {
+                            showKey.toggle()
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    Button(showKey ? "Hide" : "Show") {
-                        showKey.toggle()
-                    }
-                    .buttonStyle(.borderless)
-                }
 
-                TextField("Model", text: $model)
-                    .textFieldStyle(.plain)
-            } header: {
-                Text("Gemini Live API")
-            } footer: {
-                Text("Configure the Gemini API key and model for speech recognition.")
-            }
-
-            Section {
-                HStack {
-                    Spacer()
-                    Button("Save") { save() }
-                        .buttonStyle(.borderedProminent)
+                    TextField("Model", text: $model)
+                        .textFieldStyle(.plain)
+                } header: {
+                    Text("Gemini Live API")
+                } footer: {
+                    Text("Configure the Gemini API key and model for speech recognition.")
                 }
             }
+            .formStyle(.grouped)
+
+            HStack {
+                Spacer()
+                Button("Save") { save() }
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(12)
         }
-        .formStyle(.grouped)
         .onAppear { load() }
     }
 
